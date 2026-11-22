@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Việc Mở · Tìm việc làm</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/jobpilot/brand.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Đến nội dung chính</a>
+  <header class="topbar">
+    <div class="utility"><div class="wrap utility-inner">
+      <nav id="nav" aria-label="Điều hướng chính"></nav>
+      <span class="locale"><span class="vn-flag" aria-hidden="true">★</span>Tiếng Việt</span>
+    </div></div>
+    <div class="wrap header-inner">
+      <a class="brand" href="#/" aria-label="Việc Mở, trang chủ"><img src="/assets/jobpilot/brand.svg" alt="">Việc Mở</a>
+      <form id="quick-search" class="quick-search" role="search" aria-label="Tìm nhanh">
+        <span class="market">Việt Nam</span>
+        <button aria-label="Tìm theo từ khóa"><img src="/assets/jobpilot/search.svg" alt=""></button>
+        <input name="keyword" aria-label="Vị trí, từ khóa hoặc công ty" maxlength="150" placeholder="Vị trí, từ khóa hoặc công ty" type="search">
+      </form>
+      <div id="account" class="account"></div>
+    </div>
+  </header>
+  <main id="main" tabindex="-1"><p class="wrap loading">Đang tải…</p></main>
+  <footer class="site-footer"><div class="wrap footer-grid">
+    <div><a class="brand" href="#/"><img src="/assets/jobpilot/brand-light.svg" alt="">Việc Mở</a><p>Tuyển dụng và kết nối việc làm</p></div>
+    <div><h2>Khám phá</h2><a href="#/">Trang chủ</a><a href="#/jobs">Tìm việc làm</a></div>
+    <div id="footer-candidate"></div><div id="footer-employer"></div>
+  </div><div class="footer-bottom"><div class="wrap">Việc Mở · Đồ án Lập trình Web 2</div></div></footer>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog" class="stack">
+      <h2 id="confirm-title">Xác nhận</h2><p id="confirm-message"></p>
+      <div class="actions"><button class="secondary" value="cancel" autofocus>Quay lại</button>
+      <button class="primary" id="confirm-action" value="ok">Xác nhận</button></div>
+    </form>
+  </dialog>
+  <noscript>Bật JavaScript để tìm việc và quản lý hồ sơ ứng tuyển.</noscript>
+</body>
+</html>

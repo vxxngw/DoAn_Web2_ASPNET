@@ -1,0 +1,7 @@
+{
+  "name": "viecmo-swagger-tests",
+  "private": true,
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}

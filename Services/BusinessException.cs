@@ -1,0 +1,6 @@
+namespace Recruitment.Api.Services;
+
+public class BusinessException(int statusCode, string message) : Exception(message)
+{
+    public int StatusCode { get; } = statusCode;
+}
