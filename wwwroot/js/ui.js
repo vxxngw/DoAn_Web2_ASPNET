@@ -63,14 +63,90 @@ export function empty(title, message, action = "") {
 export function back(path, label) {
     return `<a class="back" href="#${esc(path)}">${icon("left")}${esc(label)}</a>`;
 }
-export function pager(result, path, params) {
-    const pages = Math.ceil(result.totalCount / result.pageSize);
-    if (pages < 2) return "";
-    const link = (page, label) => `<a class="secondary small" href="#${esc(url(path, {...params, page}))}">${label}</a>`;
-    return `<nav class="pager" aria-label="Phân trang">${result.page > 1 ? link(result.page-1,"Trang trước") : ""}<span>Trang ${result.page} / ${pages}</span>${result.page < pages ? link(result.page+1,"Trang sau") : ""}</nav>`;
+export function pager(result, path, params = {}) {
+    if (!result || result.totalCount === 0) return "";
+    const totalPages = result.totalPages ?? (result.pageSize > 0 ? Math.ceil(result.totalCount / result.pageSize) : 1);
+    const currentPage = result.page || 1;
+    const pageSize = result.pageSize || 10;
+    const totalCount = result.totalCount;
+
+    const start = (currentPage - 1) * pageSize + 1;
+    const end = Math.min(currentPage * pageSize, totalCount);
+
+    // Xây dựng danh sách số trang hiển thị
+    const pageItems = [];
+    if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) pageItems.push(i);
+    } else {
+        pageItems.push(1);
+        if (currentPage > 3) pageItems.push("...");
+        const startPage = Math.max(2, currentPage - 1);
+        const endPage = Math.min(totalPages - 1, currentPage + 1);
+        for (let i = startPage; i <= endPage; i++) pageItems.push(i);
+        if (currentPage < totalPages - 2) pageItems.push("...");
+        pageItems.push(totalPages);
+    }
+
+    const link = (p, label, title, className = "pager-item") =>
+        `<a class="${className}" href="#${esc(url(path, {...params, page: p, pageSize}))}" title="${esc(title || label)}" aria-label="${esc(title || label)}">${label}</a>`;
+
+    const disabledBtn = (label, title, className = "pager-nav") =>
+        `<span class="${className} disabled" aria-disabled="true" title="${esc(title || label)}">${label}</span>`;
+
+    const navButtons = [];
+    if (totalPages > 1) {
+        navButtons.push(currentPage > 1 ? link(1, "«", "Trang đầu", "pager-nav") : disabledBtn("«", "Trang đầu"));
+        navButtons.push(currentPage > 1 ? link(currentPage - 1, "‹", "Trang trước", "pager-nav") : disabledBtn("‹", "Trang trước"));
+
+        for (const item of pageItems) {
+            if (item === "...") {
+                navButtons.push('<span class="pager-ellipsis" aria-hidden="true">…</span>');
+            } else if (item === currentPage) {
+                navButtons.push(`<span class="pager-item current" aria-current="page">${item}</span>`);
+            } else {
+                navButtons.push(link(item, String(item), `Trang ${item}`));
+            }
+        }
+
+        navButtons.push(currentPage < totalPages ? link(currentPage + 1, "›", "Trang sau", "pager-nav") : disabledBtn("›", "Trang sau"));
+        navButtons.push(currentPage < totalPages ? link(totalPages, "»", "Trang cuối", "pager-nav") : disabledBtn("»", "Trang cuối"));
+    }
+
+    // Tùy chọn số mục trên mỗi trang
+    const sizeOptions = [3, 5, 10, 15, 20];
+    if (!sizeOptions.includes(pageSize)) sizeOptions.push(pageSize);
+    sizeOptions.sort((a, b) => a - b);
+
+    const sizeSelectOptions = sizeOptions.map(size => {
+        const targetUrl = "#" + esc(url(path, {...params, page: 1, pageSize: size}));
+        return `<option value="${targetUrl}" ${size === pageSize ? "selected" : ""}>${size} / trang</option>`;
+    }).join("");
+
+    const sizeSelector = `<label class="pager-size-label">Hiển thị:
+      <select class="pager-size-select" onchange="location.hash=this.value" aria-label="Chọn số mục mỗi trang">
+        ${sizeSelectOptions}
+      </select>
+    </label>`;
+
+    const info = totalPages > 1
+        ? `<span>Hiển thị <strong>${start}–${end}</strong> trong số <strong>${totalCount}</strong> mục (Trang ${currentPage}/${totalPages})</span>`
+        : `<span>Hiển thị tất cả <strong>${totalCount}</strong> mục</span>`;
+
+    return `<nav class="pager" aria-label="Phân trang">
+      <div class="pager-meta">
+        ${info}
+        ${sizeSelector}
+      </div>
+      ${totalPages > 1 ? `<div class="pager-bar" role="navigation">${navButtons.join("")}</div>` : ""}
+    </nav>`;
 }
+
 export function pageOf(query) {
-    return Math.min(1000000, Math.max(1, parseInt(query.get("page"), 10) || 1));
+    return Math.min(1000000, Math.max(1, parseInt(query.get("page") || query.get("pageNumber"), 10) || 1));
+}
+
+export function pageSizeOf(query, defaultSize = 10) {
+    return Math.min(100, Math.max(1, parseInt(query.get("pageSize"), 10) || defaultSize));
 }
 
 let timer;

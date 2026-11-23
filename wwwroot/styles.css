@@ -176,8 +176,94 @@ select { border:1px solid var(--line); border-radius:4px; background-color:white
 .list-section .chips { margin:0 0 22px; }
 .chip { border:1px solid var(--line); border-radius:4px; color:var(--muted); padding:5px 12px; font-size:.83rem; }
 .chip.current,.chip:hover { color:var(--blue); background:var(--pale); border-color:#b4d0ee; text-decoration:none; }
-.pager { display:flex; justify-content:center; align-items:center; gap:12px; margin-top:32px; font-size:.88rem; }
-.pager .secondary { border-radius:24px; }
+.pager {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 36px;
+  font-size: 0.88rem;
+  width: 100%;
+}
+.pager-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  color: var(--muted);
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pager-size-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.pager-size-select {
+  padding: 4px 8px;
+  min-height: 32px;
+  font-size: 0.82rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  cursor: pointer;
+}
+.pager-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pager-item, .pager-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: white;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.pager-item:hover, .pager-nav:hover {
+  background: var(--pale);
+  border-color: #b4d0ee;
+  color: var(--blue);
+  text-decoration: none;
+}
+.pager-item.current {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+  font-weight: 600;
+  cursor: default;
+}
+.pager-nav.disabled {
+  opacity: 0.45;
+  color: var(--muted);
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f8fafc;
+}
+.pager-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 34px;
+  color: var(--muted);
+  font-weight: 600;
+}
 .detail { padding-block:32px clamp(50px,5vw,100px); }
 .detail-heading { gap:22px; margin-bottom:36px; flex-wrap:wrap; }
 .detail-heading h1 { font-size:clamp(1.5rem,2vw,2rem); }

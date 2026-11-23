@@ -1,6 +1,6 @@
 import {art, breadcrumb} from "./layout.js";
 import {api, user} from "./api.js";
-import {activeJob, avatar, bindForm, date, empty, errorBox, esc, go, icon, notify, pageOf, pager, url} from "./ui.js";
+import {activeJob, avatar, bindForm, date, empty, errorBox, esc, go, icon, notify, pageOf, pageSizeOf, pager, url} from "./ui.js";
 
 const cities = ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng"];
 const sorts = {Newest:"Mới nhất", Deadline:"Sắp hết hạn", Title:"Tên vị trí A–Z"};
@@ -34,9 +34,13 @@ function jobBadge(job) {
 export async function jobsPage(ctx, mine = false, allJobs = false) {
     const managed = mine || allJobs;
     const route = allJobs ? "/admin/jobs" : mine ? "/employer" : "/jobs";
+    const page = pageOf(ctx.query);
+    const pageSize = pageSizeOf(ctx.query, managed ? 10 : 5);
     const params = {
-        keyword: ctx.query.get("keyword") || "", location: ctx.query.get("location") || "",
-        sort: Object.hasOwn(sorts, ctx.query.get("sort")) ? ctx.query.get("sort") : "Newest"
+        keyword: ctx.query.get("keyword") || "",
+        location: ctx.query.get("location") || "",
+        sort: Object.hasOwn(sorts, ctx.query.get("sort")) ? ctx.query.get("sort") : "Newest",
+        pageSize
     };
     const search = searchForm(params, !managed);
     const intro = allJobs ? `<header class="page-intro"><h1>Quản lý tin tuyển dụng</h1></header>${search}` : mine
@@ -49,21 +53,20 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
     document.querySelector("#search-jobs").onsubmit = event => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
-        go(url(route, {...params, keyword:form.get("keyword").trim(), location:form.get("location").trim()}));
+        go(url(route, {...params, page: 1, keyword:form.get("keyword").trim(), location:form.get("location").trim()}));
     };
 
-    const page = pageOf(ctx.query);
-    const result = await api(url(allJobs ? "/admin/jobs" : mine ? "/jobs/mine" : "/jobs", {...params, page, pageSize:15}), {signal:ctx.signal});
+    const result = await api(url(allJobs ? "/admin/jobs" : mine ? "/jobs/mine" : "/jobs", {...params, page, pageSize}), {signal:ctx.signal});
     ctx.signal.throwIfAborted();
-    const last = Math.max(1, Math.ceil(result.totalCount / result.pageSize));
-    if (page > last) { location.replace("#" + url(route,{...params,page:last})); return; }
+    const totalPages = result.totalPages ?? Math.max(1, Math.ceil(result.totalCount / result.pageSize));
+    if (page > totalPages) { location.replace("#" + url(route,{...params,page:totalPages})); return; }
 
     const choices = ["", ...cities];
     if (params.location && !choices.includes(params.location)) choices.push(params.location);
     const chips = choices.map(city => {
         const selected = city === params.location;
         return `<a class="chip ${selected ? "current" : ""}" ${selected ? 'aria-current="true"' : ""}
-          href="#${esc(url(route,{...params, location:city}))}">${esc(city || "Mọi địa điểm")}</a>`;
+          href="#${esc(url(route,{...params, location:city, page: 1}))}">${esc(city || "Mọi địa điểm")}</a>`;
     }).join("");
     const sort = Object.entries(sorts).map(([key, label]) =>
         `<option value="${key}" ${params.sort === key ? "selected" : ""}>${label}</option>`).join("");
@@ -72,8 +75,9 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
         ? empty("Chưa tìm thấy tin phù hợp", "Thử từ khóa khác hoặc mở rộng địa điểm tìm kiếm.", `<a class="secondary" href="#${route}">Xóa bộ lọc</a>`)
         : empty(mine ? "Bạn chưa đăng tin nào" : "Chưa có tin đang tuyển", mine ? "Đăng tin đầu tiên để bắt đầu nhận hồ sơ." : "Tin sẽ hiển thị tại đây khi nhà tuyển dụng đăng và mở nhận đơn.",
             mine ? '<a class="primary" href="#/employer/new">Đăng tin đầu tiên</a>' : "");
+    const pageSubtitle = totalPages > 1 ? ` · Trang ${result.page}/${totalPages}` : "";
     document.querySelector("#jobs-results").innerHTML = `<div id="job-filters" ${!managed && !filtered && params.sort === "Newest" ? "hidden" : ""}><div class="section-head"><div class="title-count">
-      <h2>${managed ? "Danh sách tin" : "Việc làm đang tuyển"}</h2><span class="count">${result.totalCount} vị trí</span></div>
+      <h2>${managed ? "Danh sách tin" : "Việc làm đang tuyển"}</h2><span class="count">${result.totalCount} vị trí${pageSubtitle}</span></div>
       <label class="sort-control">${icon("sort")}Sắp xếp<select id="sort">${sort}</select></label></div>
       <div class="chips" aria-label="Lọc địa điểm">${chips}</div></div>
       ${result.items.length ? `<div class="cards">${result.items.map(j => card(j,mine)).join("")}</div>` : none}
@@ -87,7 +91,7 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
             toggle.setAttribute("aria-expanded", String(!filters.hidden));
         };
     }
-    document.querySelector("#sort").onchange = e => go(url(route,{...params, sort:e.target.value}));
+    document.querySelector("#sort").onchange = e => go(url(route,{...params, sort:e.target.value, page: 1}));
 }
 
 export async function jobPage(ctx, id) {

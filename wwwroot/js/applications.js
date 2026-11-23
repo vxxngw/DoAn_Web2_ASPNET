@@ -1,19 +1,21 @@
 import {api, user} from "./api.js";
-import {back, badge, confirmAction, date, empty, errorBox, esc, go, icon, notify, pageOf, pager, statuses, url} from "./ui.js";
+import {back, badge, confirmAction, date, empty, errorBox, esc, go, icon, notify, pageOf, pageSizeOf, pager, statuses, url} from "./ui.js";
 
 export async function applicationsPage(ctx, jobId) {
     const route = jobId ? `/employer/${jobId}/applications` : "/applications";
     const status = Object.hasOwn(statuses, ctx.query.get("status")) ? ctx.query.get("status") : "";
     const page = pageOf(ctx.query);
+    const pageSize = pageSizeOf(ctx.query, 6);
+    const params = { status, pageSize };
     const path = jobId ? `/jobs/${jobId}/applications` : "/applications/mine";
     const [result, job] = await Promise.all([
-        api(url(path, {status,page,pageSize:8}), {signal:ctx.signal}),
+        api(url(path, {status, page, pageSize}), {signal:ctx.signal}),
         jobId ? api(`/jobs/${jobId}`,{signal:ctx.signal}) : null
     ]);
-    const last = Math.max(1,Math.ceil(result.totalCount / result.pageSize));
-    if (page > last) { location.replace("#" + url(route, {status,page:last})); return; }
+    const totalPages = result.totalPages ?? Math.max(1, Math.ceil(result.totalCount / result.pageSize));
+    if (page > totalPages) { location.replace("#" + url(route, {...params, page: totalPages})); return; }
     const chips = Object.entries({"":"Tất cả", ...statuses}).map(([value,label]) =>
-        `<a class="chip ${status === value ? "current" : ""}" href="#${esc(url(route,{status:value}))}" ${status === value ? 'aria-current="true"' : ""}>${label}</a>`).join("");
+        `<a class="chip ${status === value ? "current" : ""}" href="#${esc(url(route,{...params, status:value, page: 1}))}" ${status === value ? 'aria-current="true"' : ""}>${label}</a>`).join("");
     const listing = result.items.map(item =>
         `<article class="application-card"><div><h3><a href="#/applications/${item.id}">${esc(jobId ? item.candidateName : item.jobTitle)}</a></h3>
         <p class="metadata">${jobId ? esc(item.candidateEmail) + " · " : ""}Nộp ngày ${date(item.submittedAt)}</p></div>
@@ -21,10 +23,11 @@ export async function applicationsPage(ctx, jobId) {
     const noResults = empty(status ? "Không có đơn ở trạng thái này" : "Chưa có đơn ứng tuyển",
         status ? "Chọn Tất cả để xem các trạng thái khác." : jobId ? "Hồ sơ sẽ xuất hiện khi có ứng viên nộp đơn." : "Hãy chọn một vị trí phù hợp và gửi CV.",
         status ? `<a class="secondary" href="#${route}">Tất cả đơn</a>` : jobId ? "" : '<a class="primary" href="#/jobs">Tìm việc</a>');
+    const pageSubtitle = totalPages > 1 ? ` · Trang ${result.page}/${totalPages}` : "";
     ctx.show(`${jobId ? back(`/job/${jobId}`,"Chi tiết tin") : ""}
       <header class="page-intro"><h1>${jobId ? "Hồ sơ ứng tuyển" : "Đơn đã nộp"}</h1>${job ? `<p>${esc(job.title)}</p>` : ""}</header>
-      <div class="toolbar"><div class="chips">${chips}</div><span class="count">${result.totalCount} đơn</span></div>
-      <div class="application-list">${listing || noResults}</div>${pager(result,route,{status})}`);
+      <div class="toolbar"><div class="chips">${chips}</div><span class="count">${result.totalCount} đơn${pageSubtitle}</span></div>
+      <div class="application-list">${listing || noResults}</div>${pager(result,route,params)}`);
 }
 
 export async function applicationPage(ctx, id) {
