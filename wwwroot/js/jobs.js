@@ -1,9 +1,16 @@
 import {art, breadcrumb} from "./layout.js";
 import {api, user} from "./api.js";
-import {activeJob, avatar, bindForm, date, empty, errorBox, esc, go, icon, notify, pageOf, pageSizeOf, pager, url} from "./ui.js";
+import {activeJob, avatar, bindForm, date, empty, errorBox, esc, go, icon, notify, pageOf, pageSizeOf, pager, salary, url} from "./ui.js";
 
 const cities = ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng"];
-const sorts = {Newest:"Mới nhất", Deadline:"Sắp hết hạn", Title:"Tên vị trí A–Z"};
+const sorts = {Newest:"Mới nhất", Deadline:"Sắp hết hạn", Title:"Tên vị trí A–Z", SalaryDesc:"Lương cao nhất"};
+const salaryRanges = [
+    { label: "Mọi mức lương", min: null, max: null },
+    { label: "Dưới 10 triệu", min: null, max: 10000000 },
+    { label: "10 – 20 triệu", min: 10000000, max: 20000000 },
+    { label: "20 – 30 triệu", min: 20000000, max: 30000000 },
+    { label: "Trên 30 triệu", min: 30000000, max: null }
+];
 
 export function searchForm(params, filters = false) {
     return `<form id="search-jobs" class="search-form" role="search">
@@ -18,7 +25,10 @@ export function searchForm(params, filters = false) {
 export function card(job, mine) {
     const target = `/job/${job.id}`;
     return `<article class="job-card">
-      <h3><a href="#${target}">${esc(job.title)}</a></h3>
+      <div class="job-card-header">
+        <h3><a href="#${target}">${esc(job.title)}</a></h3>
+        <span class="job-salary">${icon("tag")}${salary(job.minSalary, job.maxSalary)}</span>
+      </div>
       <div class="job-facts">${jobBadge(job)}<span>Hạn nộp ${date(job.deadline)}</span></div>
       <div class="card-company">${avatar(job.companyName)}<div><strong>${esc(job.companyName)}</strong>
         <span class="job-location">${art("pin")}${esc(job.location)}</span></div>
@@ -36,10 +46,14 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
     const route = allJobs ? "/admin/jobs" : mine ? "/employer" : "/jobs";
     const page = pageOf(ctx.query);
     const pageSize = pageSizeOf(ctx.query, managed ? 10 : 5);
+    const minSalary = ctx.query.get("minSalary") ? Number(ctx.query.get("minSalary")) : null;
+    const maxSalary = ctx.query.get("maxSalary") ? Number(ctx.query.get("maxSalary")) : null;
     const params = {
         keyword: ctx.query.get("keyword") || "",
         location: ctx.query.get("location") || "",
         sort: Object.hasOwn(sorts, ctx.query.get("sort")) ? ctx.query.get("sort") : "Newest",
+        minSalary: minSalary ?? "",
+        maxSalary: maxSalary ?? "",
         pageSize
     };
     const search = searchForm(params, !managed);
@@ -68,18 +82,29 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
         return `<a class="chip ${selected ? "current" : ""}" ${selected ? 'aria-current="true"' : ""}
           href="#${esc(url(route,{...params, location:city, page: 1}))}">${esc(city || "Mọi địa điểm")}</a>`;
     }).join("");
+
+    const salaryChips = salaryRanges.map(range => {
+        const isCurrent = (range.min === null ? !params.minSalary : params.minSalary == range.min) &&
+                          (range.max === null ? !params.maxSalary : params.maxSalary == range.max);
+        return `<a class="chip ${isCurrent ? "current" : ""}" ${isCurrent ? 'aria-current="true"' : ""}
+          href="#${esc(url(route, {...params, minSalary: range.min, maxSalary: range.max, page: 1}))}">${esc(range.label)}</a>`;
+    }).join("");
+
     const sort = Object.entries(sorts).map(([key, label]) =>
         `<option value="${key}" ${params.sort === key ? "selected" : ""}>${label}</option>`).join("");
-    const filtered = Boolean(params.keyword || params.location);
+    const filtered = Boolean(params.keyword || params.location || params.minSalary || params.maxSalary);
     const none = filtered
-        ? empty("Chưa tìm thấy tin phù hợp", "Thử từ khóa khác hoặc mở rộng địa điểm tìm kiếm.", `<a class="secondary" href="#${route}">Xóa bộ lọc</a>`)
+        ? empty("Chưa tìm thấy tin phù hợp", "Thử từ khóa khác, mở rộng địa điểm hoặc mức lương tìm kiếm.", `<a class="secondary" href="#${route}">Xóa bộ lọc</a>`)
         : empty(mine ? "Bạn chưa đăng tin nào" : "Chưa có tin đang tuyển", mine ? "Đăng tin đầu tiên để bắt đầu nhận hồ sơ." : "Tin sẽ hiển thị tại đây khi nhà tuyển dụng đăng và mở nhận đơn.",
             mine ? '<a class="primary" href="#/employer/new">Đăng tin đầu tiên</a>' : "");
     const pageSubtitle = totalPages > 1 ? ` · Trang ${result.page}/${totalPages}` : "";
     document.querySelector("#jobs-results").innerHTML = `<div id="job-filters" ${!managed && !filtered && params.sort === "Newest" ? "hidden" : ""}><div class="section-head"><div class="title-count">
       <h2>${managed ? "Danh sách tin" : "Việc làm đang tuyển"}</h2><span class="count">${result.totalCount} vị trí${pageSubtitle}</span></div>
       <label class="sort-control">${icon("sort")}Sắp xếp<select id="sort">${sort}</select></label></div>
-      <div class="chips" aria-label="Lọc địa điểm">${chips}</div></div>
+      <div class="filters-group">
+        <div class="chips" aria-label="Lọc địa điểm">${chips}</div>
+        <div class="chips salary-chips" aria-label="Lọc mức lương">${salaryChips}</div>
+      </div></div>
       ${result.items.length ? `<div class="cards">${result.items.map(j => card(j,mine)).join("")}</div>` : none}
       ${pager(result,route,params)}`;
     if (toggle) {
@@ -130,7 +155,8 @@ export async function jobPage(ctx, id) {
       <aside class="stack"><section class="panel overview"><h2>Thông tin công việc</h2><dl>
       <div>${art("calendar")}<dt>Ngày đăng</dt><dd>${date(job.createdAt)}</dd></div>
       <div>${art("timer")}<dt>Hạn nộp</dt><dd>${date(job.deadline,true)}</dd></div>
-      <div>${art("map")}<dt>Địa điểm</dt><dd>${esc(job.location)}</dd></div></dl></section>
+      <div>${art("map")}<dt>Địa điểm</dt><dd>${esc(job.location)}</dd></div>
+      <div>${icon("tag")}<dt>Mức lương</dt><dd class="salary-highlight"><strong>${salary(job.minSalary, job.maxSalary)}</strong></dd></div></dl></section>
       <section class="panel stack apply-panel" id="apply-panel" tabindex="-1">${side}</section></aside></div></div><section class="wrap home-section related" hidden><h2>Việc làm cùng địa điểm</h2><div class="cards"></div></section>`);
     document.querySelector("#jump-apply").onclick = () => {
         const panel = document.querySelector("#apply-panel");

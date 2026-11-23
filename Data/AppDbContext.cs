@@ -16,6 +16,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         user.Property(u => u.Role).HasConversion<string>().HasMaxLength(20);
 
         var job = model.Entity<Job>();
+        job.Property(j => j.MinSalary).HasPrecision(18, 2);
+        job.Property(j => j.MaxSalary).HasPrecision(18, 2);
         job.HasOne(j => j.Employer).WithMany().HasForeignKey(j => j.EmployerId)
             .OnDelete(DeleteBehavior.Restrict);
         job.HasIndex(j => new { j.IsOpen, j.Deadline });

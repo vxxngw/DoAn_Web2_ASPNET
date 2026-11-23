@@ -13,5 +13,7 @@ public class Job
     public DateTimeOffset Deadline { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public bool IsOpen { get; set; }
+    public decimal? MinSalary { get; set; }
+    public decimal? MaxSalary { get; set; }
     [Timestamp] public byte[] RowVersion { get; set; } = [];
 }
