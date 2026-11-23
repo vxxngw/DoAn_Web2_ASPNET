@@ -12,6 +12,7 @@ public interface IApplicationService
     Task<ApplicationResponse> GetAsync(int id, int viewerId, CancellationToken ct);
     Task<byte[]> GetCvAsync(int id, int viewerId, CancellationToken ct);
     Task ReviewAsync(int id, int employerId, ApplicationStatus status, CancellationToken ct);
+    Task WithdrawAsync(int id, int candidateId, CancellationToken ct);
 }
 
 public class ApplicationService(IApplicationRepository applications, IJobService jobs) : IApplicationService
@@ -71,6 +72,15 @@ public class ApplicationService(IApplicationRepository applications, IJobService
         {
             await GetAsync(id, employerId, ct);
             throw new BusinessException(409, "Đơn đã có kết quả. Chỉ có thể xử lý đơn mới nộp.");
+        }
+    }
+
+    public async Task WithdrawAsync(int id, int candidateId, CancellationToken ct)
+    {
+        if (!await applications.TryWithdrawAsync(id, candidateId, ct))
+        {
+            await GetAsync(id, candidateId, ct);
+            throw new BusinessException(409, "Chỉ có thể rút đơn đang ở trạng thái Mới nộp.");
         }
     }
 }

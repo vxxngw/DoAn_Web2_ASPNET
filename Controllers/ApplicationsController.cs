@@ -67,4 +67,15 @@ public class ApplicationsController(IApplicationService applications) : ApiContr
         await applications.ReviewAsync(id, UserId, request.Status!.Value, ct);
         return NoContent();
     }
+
+    [Authorize(Roles = nameof(UserRole.Candidate))]
+    [HttpPatch("{id:int}/withdraw")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType<ProblemDetails>(404, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(409, "application/problem+json")]
+    public async Task<IActionResult> Withdraw(int id, CancellationToken ct)
+    {
+        await applications.WithdrawAsync(id, UserId, ct);
+        return NoContent();
+    }
 }

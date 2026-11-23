@@ -17,6 +17,7 @@ public interface IApplicationRepository
     Task<ApplicationResponse?> GetVisibleAsync(int id, int viewerId, CancellationToken ct);
     Task<byte[]?> GetCvAsync(int id, int viewerId, CancellationToken ct);
     Task<bool> TryReviewAsync(int id, int employerId, ApplicationStatus status, CancellationToken ct);
+    Task<bool> TryWithdrawAsync(int id, int candidateId, CancellationToken ct);
 }
 
 public class ApplicationRepository(AppDbContext db) : IApplicationRepository
@@ -38,6 +39,24 @@ public class ApplicationRepository(AppDbContext db) : IApplicationRepository
         application.SubmittedAt = DateTimeOffset.UtcNow;
         if (job.IsLocked || !job.IsOpen || job.Deadline <= application.SubmittedAt)
             return SubmissionResult.JobClosed;
+
+        var existing = await db.Applications
+            .Where(a => a.JobId == application.JobId && a.CandidateId == application.CandidateId)
+            .SingleOrDefaultAsync(ct);
+        if (existing != null)
+        {
+            if (existing.Status != ApplicationStatus.Withdrawn)
+                return SubmissionResult.AlreadyApplied;
+
+            existing.Message = application.Message;
+            existing.CvPdf = application.CvPdf;
+            existing.Status = ApplicationStatus.Submitted;
+            existing.SubmittedAt = application.SubmittedAt;
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            application.Id = existing.Id;
+            return SubmissionResult.Created;
+        }
 
         db.Applications.Add(application);
         try
@@ -82,6 +101,14 @@ public class ApplicationRepository(AppDbContext db) : IApplicationRepository
         int changed = await db.Applications
             .Where(a => a.Id == id && a.Job.EmployerId == employerId && a.Status == ApplicationStatus.Submitted)
             .ExecuteUpdateAsync(set => set.SetProperty(a => a.Status, status), ct);
+        return changed == 1;
+    }
+
+    public async Task<bool> TryWithdrawAsync(int id, int candidateId, CancellationToken ct)
+    {
+        int changed = await db.Applications
+            .Where(a => a.Id == id && a.CandidateId == candidateId && a.Status == ApplicationStatus.Submitted)
+            .ExecuteUpdateAsync(set => set.SetProperty(a => a.Status, ApplicationStatus.Withdrawn), ct);
         return changed == 1;
     }
 }

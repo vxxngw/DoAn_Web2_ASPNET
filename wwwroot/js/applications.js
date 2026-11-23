@@ -33,7 +33,9 @@ export async function applicationsPage(ctx, jobId) {
 export async function applicationPage(ctx, id) {
     const app = await api(`/applications/${id}`,{signal:ctx.signal});
     const employer = user.role === "Employer";
+    const candidate = user.role === "Candidate";
     const review = employer && app.status === "Submitted";
+    const withdraw = candidate && app.status === "Submitted";
     ctx.show(`<div class="narrow">${back(employer ? `/employer/${app.jobId}/applications` : "/applications",employer ? "Hồ sơ ứng tuyển" : "Đơn đã nộp")}
       <article class="panel stack"><div class="actions balance"><span class="muted">Đơn #${app.id}</span>${badge(app.status)}</div>
       <h1>${esc(app.jobTitle)}</h1><div><strong>${esc(app.candidateName)}</strong><p class="muted">${esc(app.candidateEmail)}</p></div>
@@ -41,6 +43,7 @@ export async function applicationPage(ctx, id) {
       <h2>Lời nhắn</h2><p class="body-copy">${esc(app.message)}</p>
       <div><button class="secondary" type="button" id="download">${icon("file")}Tải CV PDF</button></div>
       ${review ? '<h2>Xét hồ sơ</h2><div id="review" class="actions"><button type="button" data-value="Accepted" class="primary">Chấp nhận</button><button type="button" data-value="Rejected" class="danger">Từ chối</button></div>' : ""}
+      ${withdraw ? '<div id="withdraw" class="actions"><button type="button" class="danger">Rút đơn ứng tuyển</button></div>' : ""}
       ${errorBox}</article></div>`);
     const error = document.querySelector(".form-error");
     document.querySelector("#download").onclick = async event => {
@@ -77,5 +80,19 @@ export async function applicationPage(ctx, id) {
                 go(`/applications/${id}`);
             } else error.textContent = failure.message;
         } finally { buttons.forEach(b => b.disabled = false); }
+    };
+    if (withdraw) document.querySelector("#withdraw").onclick = async event => {
+        const button = event.currentTarget;
+        if (!await confirmAction("Rút đơn ứng tuyển?", "Đơn rút sẽ không còn được nhà tuyển dụng xử lý.", "Rút đơn") || ctx.signal.aborted) return;
+        button.disabled = true;
+        try {
+            await api(`/applications/${id}/withdraw`,{method:"PATCH"});
+            if (!ctx.signal.aborted) { notify("Đã rút đơn ứng tuyển."); go(`/applications/${id}`); }
+        } catch (failure) {
+            if (!ctx.signal.aborted) {
+                if (failure.status === 409) { notify(failure.message); go(`/applications/${id}`); }
+                else error.textContent = failure.message;
+            }
+        } finally { button.disabled = false; }
     };
 }
