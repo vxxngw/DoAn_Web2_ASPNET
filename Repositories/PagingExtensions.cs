@@ -9,9 +9,11 @@ public static class PagingExtensions
     public static async Task<PagedResult<T>> ToPageAsync<T>(this IQueryable<T> query, PageQuery paging, CancellationToken ct)
     {
         int total = await query.CountAsync(ct);
-        var items = await query.Skip((paging.Page - 1) * paging.PageSize)
-            .Take(paging.PageSize)
+        int page = Math.Max(1, paging.Page);
+        int pageSize = Math.Clamp(paging.PageSize, 1, 100);
+        var items = await query.Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(ct);
-        return new PagedResult<T>(items, paging.Page, paging.PageSize, total);
+        return new PagedResult<T>(items, page, pageSize, total);
     }
 }

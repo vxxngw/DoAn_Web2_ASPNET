@@ -20,6 +20,18 @@ public class JobTests(ApiFixture app)
             $"/api/jobs?keyword={prefix}&location=Hu%E1%BA%BF&sort=Title&pageSize=1&page=2"));
         Assert.Equal(2, result.TotalCount);
         Assert.Equal(prefix + "C", Assert.Single(result.Items).Title);
+        Assert.Equal(2, result.TotalPages);
+        Assert.True(result.HasPrevious);
+        Assert.False(result.HasNext);
+        Assert.Equal(2, result.PageNumber);
+
+        // Kiểm tra phân trang với tham số pageNumber
+        var page1Result = await ReadAsync<PagedResult<JobResponse>>(await app.Public.GetAsync(
+            $"/api/jobs?keyword={prefix}&location=Hu%E1%BA%BF&sort=Title&pageSize=1&pageNumber=1"));
+        Assert.Equal(prefix + "A", Assert.Single(page1Result.Items).Title);
+        Assert.False(page1Result.HasPrevious);
+        Assert.True(page1Result.HasNext);
+
         var mine = await ReadAsync<PagedResult<JobResponse>>(await employer.Client.GetAsync("/api/jobs/mine"));
         Assert.Equal(3, mine.TotalCount);
         await ErrorAsync(await app.Public.GetAsync("/api/jobs?pageSize=101"), HttpStatusCode.BadRequest);
