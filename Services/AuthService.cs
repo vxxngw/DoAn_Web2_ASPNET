@@ -44,8 +44,6 @@ public class AuthService(IUserRepository users, IPasswordHasher<User> hasher, IO
         var result = hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
         if (result == PasswordVerificationResult.Failed)
             throw new BusinessException(401, "Email hoặc mật khẩu không đúng.");
-        if (user.IsLocked)
-            throw new BusinessException(403, "Tài khoản đã bị quản trị viên khóa.");
         if (result == PasswordVerificationResult.SuccessRehashNeeded)
         {
             user.PasswordHash = hasher.HashPassword(user, request.Password);
