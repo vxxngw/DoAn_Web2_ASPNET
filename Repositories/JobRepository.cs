@@ -34,7 +34,8 @@ public class JobRepository(AppDbContext db) : IJobRepository
     // EF dịch biểu thức Select thành SQL, kể cả tên công ty lấy từ bảng Users.
     private static readonly Expression<Func<Job, JobResponse>> ToResponse = j =>
         new JobResponse(j.Id, j.EmployerId, j.Employer.CompanyName!, j.Title, j.Description,
-            j.Location, j.Deadline, j.IsOpen, j.CreatedAt, j.RowVersion, j.Employer.IsLocked);
+            j.Location, j.Deadline, j.IsOpen, j.CreatedAt, j.RowVersion, j.Employer.IsLocked,
+            j.MinSalary, j.MaxSalary);
 
     public Task<PagedResult<JobResponse>> ListAsync(JobQuery filter, int? ownerId, CancellationToken ct, bool includeAll = false)
     {
@@ -55,11 +56,20 @@ public class JobRepository(AppDbContext db) : IJobRepository
             var location = filter.Location.Trim();
             query = query.Where(j => j.Location.Contains(location));
         }
+        if (filter.MinSalary.HasValue)
+        {
+            query = query.Where(j => j.MaxSalary == null || j.MaxSalary >= filter.MinSalary.Value);
+        }
+        if (filter.MaxSalary.HasValue)
+        {
+            query = query.Where(j => j.MinSalary == null || j.MinSalary <= filter.MaxSalary.Value);
+        }
 
         var sorted = filter.Sort switch
         {
             JobSort.Title => query.OrderBy(j => j.Title).ThenBy(j => j.Id),
             JobSort.Deadline => query.OrderBy(j => j.Deadline).ThenBy(j => j.Id),
+            JobSort.SalaryDesc => query.OrderByDescending(j => j.MaxSalary ?? j.MinSalary ?? 0).ThenByDescending(j => j.CreatedAt),
             _ => query.OrderByDescending(j => j.CreatedAt).ThenByDescending(j => j.Id)
         };
         return sorted.Select(ToResponse).ToPageAsync(filter, ct);

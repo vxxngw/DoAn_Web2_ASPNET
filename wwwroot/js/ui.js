@@ -10,7 +10,8 @@ const paths = {
     left: '<path d="m14 7-5 5 5 5"/>',
     right: '<path d="m10 7 5 5-5 5"/>',
     check: '<path d="m4 12 5 5L20 6"/>',
-    sort: '<path d="M3 6h17M3 12h12M3 18h7"/>'
+    sort: '<path d="M3 6h17M3 12h12M3 18h7"/>',
+    tag: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'
 };
 export function icon(name) {
     return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
@@ -52,6 +53,26 @@ export function avatar(name) {
 export const statuses = {Submitted:"Mới nộp", Accepted:"Chấp nhận", Rejected:"Từ chối"};
 export function badge(status) {
     return `<span class="badge ${esc(status)}">${esc(statuses[status] || status)}</span>`;
+}
+export function salary(min, max) {
+    if (min == null && max == null) return "Thỏa thuận";
+    const format = val => {
+        if (val >= 1_000_000) {
+            const tr = val / 1_000_000;
+            return (Number.isInteger(tr) ? tr : tr.toFixed(1)) + " triệu";
+        }
+        return new Intl.NumberFormat("vi-VN", {style:"currency", currency:"VND"}).format(val);
+    };
+    if (min != null && max != null) {
+        if (min >= 1_000_000 && max >= 1_000_000) {
+            const minTr = min / 1_000_000;
+            const maxTr = max / 1_000_000;
+            return `${Number.isInteger(minTr) ? minTr : minTr.toFixed(1)} – ${Number.isInteger(maxTr) ? maxTr : maxTr.toFixed(1)} triệu`;
+        }
+        return `${format(min)} – ${format(max)}`;
+    }
+    if (min != null) return `Từ ${format(min)}`;
+    return `Tới ${format(max)}`;
 }
 export function activeJob(job) {
     return !job.employerLocked && job.isOpen && new Date(job.deadline).getTime() > Date.now();

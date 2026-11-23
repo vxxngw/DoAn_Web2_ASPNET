@@ -64,10 +64,19 @@ public class JobService(IJobRepository jobs) : IJobService
         var deadline = request.Deadline!.Value.ToUniversalTime();
         if (request.IsOpen && deadline <= DateTimeOffset.UtcNow)
             throw new BusinessException(400, "Hạn nộp của tin đang mở phải ở tương lai.");
+        if (request.MinSalary.HasValue && request.MaxSalary.HasValue && request.MinSalary > request.MaxSalary)
+            throw new BusinessException(400, "Lương tối thiểu không được lớn hơn lương tối đa.");
+        if (request.MinSalary.HasValue && request.MinSalary < 0)
+            throw new BusinessException(400, "Lương tối thiểu không được âm.");
+        if (request.MaxSalary.HasValue && request.MaxSalary < 0)
+            throw new BusinessException(400, "Lương tối đa không được âm.");
+
         job.Title = request.Title.Trim();
         job.Description = request.Description.Trim();
         job.Location = request.Location.Trim();
         job.Deadline = deadline;
         job.IsOpen = request.IsOpen;
+        job.MinSalary = request.MinSalary;
+        job.MaxSalary = request.MaxSalary;
     }
 }

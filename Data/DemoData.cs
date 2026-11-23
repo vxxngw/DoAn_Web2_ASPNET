@@ -26,20 +26,20 @@ public static class DemoData
     private static async Task SeedJobsAsync(AppDbContext db)
     {
         var now = DateTimeOffset.UtcNow;
-        var samples = new[]
+        var samples = new (string company, string title, string location, string description, decimal? min, decimal? max)[]
         {
-            ("Mây Studio", "Thiết kế sản phẩm số", "TP. Hồ Chí Minh", "Thiết kế giao diện web cùng nhóm sản phẩm. Bạn sẽ phác thảo luồng sử dụng, dựng prototype và điều chỉnh thiết kế dựa trên phản hồi của người dùng."),
-            ("Sông Labs", "Lập trình viên Backend C#", "Hà Nội", "Xây dựng ASP.NET Core Web API cho hệ thống quản lý nội bộ. Công việc gồm thiết kế dữ liệu SQL Server, viết truy vấn và phối hợp với nhóm frontend."),
-            ("Cam Creative", "Chuyên viên sáng tạo nội dung", "Đà Nẵng", "Lên ý tưởng, viết nội dung cho các kênh truyền thông và phối hợp với nhóm thiết kế để hoàn thiện ấn phẩm."),
-            ("Lam Digital", "Thực tập sinh Frontend", "TP. Hồ Chí Minh", "Phát triển giao diện responsive bằng HTML, CSS và JavaScript. Nhóm sẽ hướng dẫn cách tích hợp API và kiểm tra trải nghiệm trên thiết bị di động."),
-            ("Nếp Space", "Điều phối viên dự án", "Hà Nội", "Theo dõi tiến độ công việc, chuẩn bị tài liệu và kết nối các thành viên trong nhóm triển khai dự án."),
-            ("Mộc Works", "Chuyên viên chăm sóc khách hàng", "Đà Nẵng", "Tiếp nhận yêu cầu, hướng dẫn khách hàng sử dụng sản phẩm và ghi nhận phản hồi để phối hợp với nhóm vận hành.")
+            ("Mây Studio", "Thiết kế sản phẩm số", "TP. Hồ Chí Minh", "Thiết kế giao diện web cùng nhóm sản phẩm. Bạn sẽ phác thảo luồng sử dụng, dựng prototype và điều chỉnh thiết kế dựa trên phản hồi của người dùng.", 18_000_000m, 25_000_000m),
+            ("Sông Labs", "Lập trình viên Backend C#", "Hà Nội", "Xây dựng ASP.NET Core Web API cho hệ thống quản lý nội bộ. Công việc gồm thiết kế dữ liệu SQL Server, viết truy vấn và phối hợp với nhóm frontend.", 22_000_000m, 35_000_000m),
+            ("Cam Creative", "Chuyên viên sáng tạo nội dung", "Đà Nẵng", "Lên ý tưởng, viết nội dung cho các kênh truyền thông và phối hợp với nhóm thiết kế để hoàn thiện ấn phẩm.", 12_000_000m, 16_000_000m),
+            ("Lam Digital", "Thực tập sinh Frontend", "TP. Hồ Chí Minh", "Phát triển giao diện responsive bằng HTML, CSS và JavaScript. Nhóm sẽ hướng dẫn cách tích hợp API và kiểm tra trải nghiệm trên thiết bị di động.", 6_000_000m, 9_000_000m),
+            ("Nếp Space", "Điều phối viên dự án", "Hà Nội", "Theo dõi tiến độ công việc, chuẩn bị tài liệu và kết nối các thành viên trong nhóm triển khai dự án.", 15_000_000m, 20_000_000m),
+            ("Mộc Works", "Chuyên viên chăm sóc khách hàng", "Đà Nẵng", "Tiếp nhận yêu cầu, hướng dẫn khách hàng sử dụng sản phẩm và ghi nhận phản hồi để phối hợp với nhóm vận hành.", 10_000_000m, 14_000_000m)
         };
 
         var hasher = new PasswordHasher<User>();
         for (int index = 0; index < samples.Length; index++)
         {
-            var (company, title, location, description) = samples[index];
+            var (company, title, location, description, min, max) = samples[index];
             var employer = new User
             {
                 Role = UserRole.Employer, FullName = company, CompanyName = company,
@@ -49,6 +49,7 @@ public static class DemoData
             db.Jobs.Add(new Job
             {
                 Employer = employer, Title = title, Description = description, Location = location,
+                MinSalary = min, MaxSalary = max,
                 CreatedAt = now.AddDays(-index), Deadline = now.AddDays(30 + index), IsOpen = true
             });
         }

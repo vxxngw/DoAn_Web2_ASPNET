@@ -115,6 +115,13 @@ img { display: block; }
 .job-card { position:relative; min-width:0; border:1px solid var(--line); background:white; border-radius:8px; padding:clamp(19px,1.55vw,26px); box-shadow:0 2px 8px #18191c04; display:flex; flex-direction:column; }
 .job-card:nth-child(1),.job-card:nth-child(2),.job-card:nth-child(9) { background:linear-gradient(100deg,#fff6e6,white); }
 .job-card:hover,.job-card:focus-within { border-color:#8bb4e4; box-shadow:var(--shadow); }
+.job-card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.job-salary { display:inline-flex; align-items:center; gap:4px; font-size:.8rem; font-weight:600; color:#0b7247; background:#eef9f2; border:1px solid #c7eed6; padding:3px 8px; border-radius:4px; white-space:nowrap; flex-shrink:0; }
+.job-salary .icon { width:13px; height:13px; }
+.salary-highlight { color:#0b7247; font-weight:600; }
+.salary-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.salary-chips { margin-top:-10px; }
+@media (max-width:600px) { .salary-grid { grid-template-columns:1fr; gap:10px; } }
 .job-card h3 { line-height:1.45; }
 .job-card h3 a,.vacancies a,.application-card h3 a { color:var(--ink); }
 .job-card h3 a::after { content:""; position:absolute; inset:0; border-radius:8px; }

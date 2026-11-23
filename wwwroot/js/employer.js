@@ -20,6 +20,15 @@ export async function jobForm(ctx, id) {
       <label class="field">Mô tả công việc<textarea name="description" required maxlength="4000" rows="7">${esc(job?.description)}</textarea></label>
       <label class="field">Hạn nộp hồ sơ<input type="datetime-local" name="deadline" required step="1" value="${deadline}">
         <span class="hint">Theo giờ địa phương của thiết bị.</span></label>
+      <div class="salary-grid">
+        <label class="field">Lương tối thiểu (VNĐ)
+          <input type="number" name="minSalary" step="500000" min="0" placeholder="VD: 15000000" value="${job?.minSalary ?? ""}">
+        </label>
+        <label class="field">Lương tối đa (VNĐ)
+          <input type="number" name="maxSalary" step="500000" min="0" placeholder="VD: 25000000" value="${job?.maxSalary ?? ""}">
+        </label>
+      </div>
+      <span class="hint" style="margin-top:-6px;">Để trống nếu là lương thỏa thuận.</span>
       <label class="check"><input type="checkbox" name="isOpen" ${!job || job.isOpen ? "checked" : ""}>Mở nhận hồ sơ</label>
       ${errorBox}<div class="actions"><button class="primary" type="submit">${job ? "Lưu thay đổi" : "Đăng tin"}</button>
         ${job ? '<button class="secondary" id="reload-job" type="button" hidden>Tải lại phiên bản mới</button>' : ""}
@@ -29,7 +38,15 @@ export async function jobForm(ctx, id) {
         const inputDate = new Date(data.get("deadline"));
         const isOpen = data.has("isOpen");
         if (isOpen && inputDate.getTime() <= Date.now()) throw new Error("Hạn nộp của tin đang mở phải ở tương lai.");
+        const minSalaryVal = data.get("minSalary")?.trim();
+        const maxSalaryVal = data.get("maxSalary")?.trim();
+        const minSalary = minSalaryVal ? Number(minSalaryVal) : null;
+        const maxSalary = maxSalaryVal ? Number(maxSalaryVal) : null;
+        if (minSalary !== null && maxSalary !== null && minSalary > maxSalary) {
+            throw new Error("Lương tối thiểu không được lớn hơn lương tối đa.");
+        }
         const body = {title:data.get("title"), location:data.get("location"), description:data.get("description"),
+            minSalary, maxSalary,
             deadline:job && localDateInput(inputDate) === deadline ? job.deadline : inputDate.toISOString(), isOpen};
         if (job) body.rowVersion = job.rowVersion;
         try {
