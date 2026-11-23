@@ -50,7 +50,7 @@ export function avatar(name) {
     return `<span class="company-avatar tone-${hue}" aria-hidden="true">${esc(letters)}</span>`;
 }
 
-export const statuses = {Submitted:"Mới nộp", Accepted:"Chấp nhận", Rejected:"Từ chối"};
+export const statuses = {Submitted:"Mới nộp", Accepted:"Chấp nhận", Rejected:"Từ chối", Withdrawn:"Đã rút"};
 export function badge(status) {
     return `<span class="badge ${esc(status)}">${esc(statuses[status] || status)}</span>`;
 }

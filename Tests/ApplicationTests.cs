@@ -144,4 +144,34 @@ public class ApplicationTests(ApiFixture app)
         var final = await ReadAsync<ApplicationResponse>(await candidate.Client.GetAsync(detail));
         Assert.Equal(choices[winner], final.Status.ToString());
     }
+
+    [Fact]
+    public async Task Candidate_can_withdraw_only_while_application_is_submitted()
+    {
+        var employer = await app.AccountAsync("Employer");
+        var candidate = await app.AccountAsync("Candidate");
+        var foreignCandidate = await app.AccountAsync("Candidate");
+        var job = await CreateJobAsync(employer, NewJob());
+        using var form = Form();
+        using var created = await candidate.Client.PostAsync($"/api/jobs/{job.Id}/applications", form);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        string detail = created.Headers.Location!.AbsolutePath;
+
+        await ErrorAsync(await employer.Client.PatchAsync(detail + "/withdraw", null), HttpStatusCode.Forbidden);
+        await ErrorAsync(await foreignCandidate.Client.PatchAsync(detail + "/withdraw", null), HttpStatusCode.NotFound);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await candidate.Client.PatchAsync(detail + "/withdraw", null)).StatusCode);
+        var withdrawn = await ReadAsync<ApplicationResponse>(await candidate.Client.GetAsync(detail));
+        Assert.Equal(ApplicationStatus.Withdrawn, withdrawn.Status);
+
+        await ErrorAsync(await candidate.Client.PatchAsync(detail + "/withdraw", null), HttpStatusCode.Conflict);
+        var mine = await ReadAsync<PagedResult<ApplicationResponse>>(await candidate.Client.GetAsync("/api/applications/mine?status=Withdrawn"));
+        Assert.Equal(withdrawn.Id, Assert.Single(mine.Items).Id);
+
+        using var reapplyForm = Form(message: "Xin nộp lại");
+        Assert.Equal(HttpStatusCode.Created, (await candidate.Client.PostAsync($"/api/jobs/{job.Id}/applications", reapplyForm)).StatusCode);
+        var reapplied = await ReadAsync<ApplicationResponse>(await candidate.Client.GetAsync(detail));
+        Assert.Equal(ApplicationStatus.Submitted, reapplied.Status);
+        Assert.Equal("Xin nộp lại", reapplied.Message);
+    }
 }

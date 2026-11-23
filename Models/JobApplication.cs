@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Recruitment.Api.Models;
 
-public enum ApplicationStatus { Submitted, Accepted, Rejected }
+public enum ApplicationStatus { Submitted, Accepted, Rejected, Withdrawn }
 
 public class JobApplication
 {
