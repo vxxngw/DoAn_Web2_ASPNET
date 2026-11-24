@@ -20,7 +20,8 @@ export async function adminUsersPage(ctx) {
     const rows = result.items.map(account => `<article class="application-card">
         <div><h3>${esc(account.fullName)}</h3><p class="metadata">${esc(account.email)} · ${roles[account.role]}</p></div>
         <div class="actions"><span class="badge ${account.isLocked ? "closed" : "open"}">${account.isLocked ? "Đã khóa" : "Hoạt động"}</span>
-        ${account.role === "Admin" ? "" : `<button type="button" class="secondary small" data-account="${account.id}">${account.isLocked ? "Mở khóa" : "Khóa"}</button>`}</div></article>`).join("");
+        ${account.role === "Admin" ? "" : `<button type="button" class="secondary small" data-action="lock" data-account="${account.id}">${account.isLocked ? "Mở khóa" : "Khóa"}</button>
+        <button type="button" class="danger small" data-action="delete" data-account="${account.id}">Xóa</button>`}</div></article>`).join("");
     const pageSubtitle = totalPages > 1 ? ` · Trang ${result.page}/${totalPages}` : "";
     ctx.show(`<header class="page-intro"><h1>Tài khoản người dùng</h1></header>
         <form class="actions" id="account-search" role="search"><label class="field"><span class="sr-only">Tên hoặc email</span>
@@ -37,12 +38,25 @@ export async function adminUsersPage(ctx) {
         const button = event.target.closest("button[data-account]");
         if (!button) return;
         const account = result.items.find(u => u.id === Number(button.dataset.account));
-        const action = account.isLocked ? "Mở khóa" : "Khóa";
-        if (!await confirmAction(action + " tài khoản?", account.email, action) || ctx.signal.aborted) return;
+        const deleting = button.dataset.action === "delete";
+        const action = deleting ? "Xóa" : account.isLocked ? "Mở khóa" : "Khóa";
+        const message = deleting
+            ? account.role === "Employer"
+                ? `${account.email}. Thao tác này sẽ xóa tài khoản, tất cả tin tuyển dụng và hồ sơ ứng tuyển liên quan.`
+                : `${account.email}. Ứng viên có hồ sơ ứng tuyển liên quan sẽ không thể xóa.`
+            : account.email;
+        if (!await confirmAction(action + " tài khoản?", message, action) || ctx.signal.aborted) return;
         button.disabled = true;
         try {
-            await api(`/admin/users/${account.id}/lock`,{method:"PATCH",body:{isLocked:!account.isLocked}});
-            if (!ctx.signal.aborted) { notify("Đã cập nhật trạng thái tài khoản."); go(url(route,{...params, page})); }
+            if (deleting) {
+                await api(`/admin/users/${account.id}`,{method:"DELETE"});
+            } else {
+                await api(`/admin/users/${account.id}/lock`,{method:"PATCH",body:{isLocked:!account.isLocked}});
+            }
+            if (!ctx.signal.aborted) {
+                notify(deleting ? "Đã xóa tài khoản." : "Đã cập nhật trạng thái tài khoản.");
+                go(url(route,{...params, page}));
+            }
         } catch (error) {
             if (!ctx.signal.aborted) notify(error.message);
         } finally { button.disabled = false; }

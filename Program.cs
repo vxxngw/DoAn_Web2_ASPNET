@@ -80,6 +80,14 @@ services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+if (args.Contains("--seed-500"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DemoData.SeedLargeDatasetAsync(db);
+    Console.WriteLine("Đã thêm thành công 500 ứng viên, 500 nhà tuyển dụng và 500 tin tuyển dụng!");
+    return;
+}
 if (args.Contains("--create-admin"))
 {
     using var scope = app.Services.CreateScope();

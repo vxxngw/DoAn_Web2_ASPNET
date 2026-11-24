@@ -26,6 +26,17 @@ public class AdminController(IAdminService admin, IJobService jobs) : ApiControl
         return NoContent();
     }
 
+    [HttpDelete("users/{id:int}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType<ProblemDetails>(403, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(404, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(409, "application/problem+json")]
+    public async Task<IActionResult> DeleteUser(int id, CancellationToken ct)
+    {
+        await admin.DeleteUserAsync(id, ct);
+        return NoContent();
+    }
+
     [HttpGet("jobs")]
     [ProducesResponseType<PagedResult<JobResponse>>(200)]
     [ProducesResponseType<ProblemDetails>(400, "application/problem+json")]

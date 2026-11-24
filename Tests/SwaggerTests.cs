@@ -9,7 +9,7 @@ namespace Recruitment.Tests;
 public class SwaggerTests(ApiFixture app)
 {
     [Fact]
-    public async Task OpenApi_documents_all_19_operations_with_their_auth_and_success_responses()
+    public async Task OpenApi_documents_all_21_operations_with_their_auth_and_success_responses()
     {
         var spec = await ReadAsync<JsonElement>(await app.Public.GetAsync("/swagger/v1/swagger.json"));
         var paths = spec.GetProperty("paths");
@@ -22,7 +22,9 @@ public class SwaggerTests(ApiFixture app)
             ("post","/api/jobs/{jobId}/applications",201,true), ("get","/api/jobs/{jobId}/applications",200,true),
             ("get","/api/applications/mine",200,true), ("get","/api/applications/{id}",200,true),
             ("get","/api/applications/{id}/cv",200,true), ("patch","/api/applications/{id}/status",204,true),
-            ("get","/api/admin/users",200,true), ("patch","/api/admin/users/{id}/lock",204,true), ("get","/api/admin/jobs",200,true)
+            ("patch","/api/applications/{id}/withdraw",204,true),
+            ("get","/api/admin/users",200,true), ("patch","/api/admin/users/{id}/lock",204,true),
+            ("delete","/api/admin/users/{id}",204,true), ("get","/api/admin/jobs",200,true)
         };
         Assert.Equal(expected.Length, paths.EnumerateObject().Sum(p => p.Value.EnumerateObject().Count()));
         foreach (var (method, path, success, requiresLogin) in expected)
