@@ -26,5 +26,17 @@ public class LoginRequest
     [Required, MaxLength(128)] public string Password { get; set; } = "";
 }
 
+public class ForgotPasswordRequest
+{
+    [Required, EmailAddress, MaxLength(254)] public string Email { get; set; } = "";
+}
+
+public class ResetPasswordRequest
+{
+    [Required] public string Token { get; set; } = "";
+    [Required, StringLength(128, MinimumLength = 8)] public string NewPassword { get; set; } = "";
+}
+
 public record UserResponse(int Id, string Email, string FullName, UserRole Role, string? CompanyName);
 public record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, UserResponse User);
+public record ForgotPasswordResponse(string Message, string? ResetToken);
