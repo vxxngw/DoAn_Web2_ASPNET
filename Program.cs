@@ -14,9 +14,6 @@ using Recruitment.Api.Repositories;
 using Recruitment.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-bool demo = builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Demo:Enabled");
-if (demo)
-    builder.Configuration["Jwt:Key"] = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(48));
 
 var services = builder.Services;
 services.AddControllers().AddJsonOptions(options =>
@@ -25,15 +22,19 @@ services.AddProblemDetails();
 services.AddExceptionHandler<ApiExceptionHandler>();
 
 services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString(demo ? "DemoConnection" : "DefaultConnection")
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("Thiếu cấu hình chuỗi kết nối SQL Server.")));
 services.AddScoped<IUserRepository, UserRepository>();
 services.AddScoped<IJobRepository, JobRepository>();
 services.AddScoped<IApplicationRepository, ApplicationRepository>();
+services.AddScoped<ISavedJobRepository, SavedJobRepository>();
 services.AddScoped<IAuthService, AuthService>();
 services.AddScoped<IAdminService, AdminService>();
 services.AddScoped<IJobService, JobService>();
 services.AddScoped<IApplicationService, ApplicationService>();
+services.AddScoped<ISavedJobService, SavedJobService>();
+services.AddScoped<IDashboardService, DashboardService>();
+services.AddScoped<IApplicationExportService, ApplicationExportService>();
 services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 services.AddOptions<JwtSettings>().BindConfiguration("Jwt").ValidateDataAnnotations().ValidateOnStart();
@@ -80,6 +81,14 @@ services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+if (args.Contains("--seed-500"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DemoData.SeedLargeDatasetAsync(db);
+    Console.WriteLine("Đã thêm thành công 500 ứng viên, 500 nhà tuyển dụng và 500 tin tuyển dụng!");
+    return;
+}
 if (args.Contains("--create-admin"))
 {
     using var scope = app.Services.CreateScope();
@@ -90,11 +99,6 @@ if (args.Contains("--create-admin"))
     Console.WriteLine(created ? "Đã tạo quản trị viên." : "Email đã tồn tại. Hãy dùng email mới để tạo quản trị viên.");
     Environment.ExitCode = created ? 0 : 1;
     return;
-}
-if (demo)
-{
-    using var scope = app.Services.CreateScope();
-    await DemoData.InitializeAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>());
 }
 app.UseExceptionHandler();
 app.UseStatusCodePages(async context =>
@@ -112,8 +116,7 @@ app.UseStatusCodePages(async context =>
     };
     await Results.Problem(statusCode: status, title: title).ExecuteAsync(context.HttpContext);
 });
-if (!demo)
-    app.UseHttpsRedirection();
+app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 if (app.Environment.IsDevelopment())

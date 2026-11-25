@@ -96,6 +96,7 @@ public class JobRepository(AppDbContext db) : IJobRepository
 
     public async Task<bool> TryDeleteAsync(Job job, CancellationToken ct)
     {
+        await db.SavedJobs.Where(s => s.JobId == job.Id).ExecuteDeleteAsync(ct);
         db.Jobs.Remove(job);
         try
         {

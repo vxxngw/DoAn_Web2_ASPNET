@@ -11,7 +11,11 @@ const paths = {
     right: '<path d="m10 7 5 5-5 5"/>',
     check: '<path d="m4 12 5 5L20 6"/>',
     sort: '<path d="M3 6h17M3 12h12M3 18h7"/>',
-    tag: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'
+    tag: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+    heartFilled: '<path fill="currentColor" stroke="currentColor" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+    chart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'
 };
 export function icon(name) {
     return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
@@ -35,7 +39,7 @@ export function go(path) {
 }
 
 export function internalNext(value, fallback) {
-    return /^\/(?:admin\/(?:users|jobs(?:\/\d+\/edit)?)|jobs|job\/\d+|applications(?:\/\d+)?|employer(?:\/new|\/\d+\/(?:edit|applications))?)(?:\?.*)?$/.test(value || "") ? value : fallback;
+    return /^\/(?:admin\/(?:dashboard|users|jobs(?:\/\d+\/edit)?)|jobs|job\/\d+|applications(?:\/\d+)?|saved-jobs|employer(?:\/dashboard|\/new|\/\d+\/(?:edit|applications))?)(?:\?.*)?$/.test(value || "") ? value : fallback;
 }
 
 export function date(value, withTime = false) {

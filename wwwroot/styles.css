@@ -116,6 +116,10 @@ img { display: block; }
 .job-card:nth-child(1),.job-card:nth-child(2),.job-card:nth-child(9) { background:linear-gradient(100deg,#fff6e6,white); }
 .job-card:hover,.job-card:focus-within { border-color:#8bb4e4; box-shadow:var(--shadow); }
 .job-card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.job-card-tools { display:flex; align-items:center; gap:8px; position:relative; z-index:2; }
+.icon-button.bookmark-button { width:36px; height:36px; border:1px solid var(--line); border-radius:50%; background:white; color:var(--muted); display:grid; place-items:center; cursor:pointer; }
+.icon-button.bookmark-button:hover,.icon-button.bookmark-button.saved { color:var(--red); border-color:#efb1b1; }
+.icon-button.bookmark-button:disabled { opacity:.6; cursor:wait; }
 .job-salary { display:inline-flex; align-items:center; gap:4px; font-size:.8rem; font-weight:600; color:#0b7247; background:#eef9f2; border:1px solid #c7eed6; padding:3px 8px; border-radius:4px; white-space:nowrap; flex-shrink:0; }
 .job-salary .icon { width:13px; height:13px; }
 .salary-highlight { color:#0b7247; font-weight:600; }
@@ -393,3 +397,26 @@ dialog::backdrop { background:#13233c70; }
   .role-ctas p { width:65%; }
   .footer-grid { gap:20px; } .home-section { padding-block:44px; }
 }
+
+/* Dashboard & Analytics */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px; display:flex; align-items:center; gap:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+.kpi-icon { width:48px; height:48px; border-radius:8px; background:var(--surface-tint); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.kpi-icon .icon { width:24px; height:24px; }
+.kpi-label { display:block; font-size:.84rem; color:var(--muted); margin-bottom:4px; font-weight:500; }
+.kpi-value { font-size:1.55rem; color:var(--text); line-height:1.2; }
+.dashboard-charts-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:20px; }
+@media (max-width: 900px) { .dashboard-charts-grid { grid-template-columns:1fr; } }
+.stat-bars-container { display:flex; flex-direction:column; gap:14px; margin-top:14px; }
+.stat-bar-item { display:flex; flex-direction:column; gap:6px; }
+.stat-bar-header { display:flex; justify-content:space-between; font-size:.88rem; }
+.stat-bar-track { background:var(--surface-tint); height:10px; border-radius:5px; overflow:hidden; }
+.stat-bar-fill { height:100%; border-radius:5px; transition:width .4s ease; }
+.status-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-top:14px; }
+.kpi-mini-card { border-radius:8px; padding:16px; border:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
+.kpi-number { font-size:1.4rem; }
+.tone-accent { background:var(--primary); }
+.tone-warning { background:#fef3c7; border-color:#fde68a; color:#92400e; }
+.tone-success { background:#dcfce7; border-color:#bbf7d0; color:#166534; }
+.tone-danger { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
+.tone-muted { background:#f3f4f6; border-color:#e5e7eb; color:#4b5563; }

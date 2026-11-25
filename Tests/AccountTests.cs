@@ -78,4 +78,46 @@ public class AccountTests(ApiFixture app)
         await ErrorAsync(await app.Admin.Client.PatchAsJsonAsync($"/api/admin/users/{app.Admin.Id}/lock", new {isLocked = true}), HttpStatusCode.Forbidden);
         await ErrorAsync(await app.Admin.Client.PatchAsJsonAsync("/api/admin/users/2147483647/lock", new {isLocked = true}), HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task Administrator_can_delete_accounts_and_cascade_employer_history_but_not_candidate_history_or_admins()
+    {
+        var employer = await app.AccountAsync("Employer");
+        var job = await CreateJobAsync(employer, NewJob());
+        var candidate = await app.AccountAsync("Candidate");
+        using var form = ApplicationTests.Form();
+        using var created = await candidate.Client.PostAsync($"/api/jobs/{job.Id}/applications", form);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var otherEmployer = await app.AccountAsync("Employer");
+        var otherJob = await CreateJobAsync(otherEmployer, NewJob());
+        using var otherForm = ApplicationTests.Form();
+        using var otherCreated = await candidate.Client.PostAsync($"/api/jobs/{otherJob.Id}/applications", otherForm);
+        Assert.Equal(HttpStatusCode.Created, otherCreated.StatusCode);
+
+        var unused = await app.AccountAsync("Candidate");
+        string route = $"/api/admin/users/{unused.Id}";
+        await ErrorAsync(await app.Public.DeleteAsync(route), HttpStatusCode.Unauthorized);
+        await ErrorAsync(await employer.Client.DeleteAsync(route), HttpStatusCode.Forbidden);
+        await ErrorAsync(await app.Admin.Client.DeleteAsync("/api/admin/users/2147483647"), HttpStatusCode.NotFound);
+        await ErrorAsync(await app.Admin.Client.DeleteAsync($"/api/admin/users/{app.Admin.Id}"), HttpStatusCode.Forbidden);
+
+        await ErrorAsync(await app.Admin.Client.DeleteAsync($"/api/admin/users/{candidate.Id}"), HttpStatusCode.Conflict);
+        Assert.Equal(HttpStatusCode.NoContent, (await app.Admin.Client.DeleteAsync($"/api/admin/users/{employer.Id}")).StatusCode);
+        await ErrorAsync(await candidate.Client.GetAsync(created.Headers.Location!), HttpStatusCode.NotFound);
+        await ErrorAsync(await app.Admin.Client.GetAsync($"/api/jobs/{job.Id}"), HttpStatusCode.NotFound);
+        var removedJobApplications = await ReadAsync<PagedResult<ApplicationResponse>>(await candidate.Client.GetAsync(
+            $"/api/applications/mine?jobId={job.Id}"));
+        Assert.Empty(removedJobApplications.Items);
+        var preservedApplications = await ReadAsync<PagedResult<ApplicationResponse>>(await candidate.Client.GetAsync(
+            $"/api/applications/mine?jobId={otherJob.Id}"));
+        Assert.Single(preservedApplications.Items);
+        await ErrorAsync(await employer.Client.GetAsync("/api/auth/me"), HttpStatusCode.Unauthorized);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await app.Admin.Client.DeleteAsync(route)).StatusCode);
+        var result = await ReadAsync<PagedResult<AccountSummary>>(await app.Admin.Client.GetAsync(
+            "/api/admin/users?keyword=" + Uri.EscapeDataString(unused.Email)));
+        Assert.Empty(result.Items);
+        await ErrorAsync(await unused.Client.GetAsync("/api/auth/me"), HttpStatusCode.Unauthorized);
+    }
 }

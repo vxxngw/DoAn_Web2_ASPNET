@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<User> Users => Set<User>();
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobApplication> Applications => Set<JobApplication>();
+    public DbSet<SavedJob> SavedJobs => Set<SavedJob>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -28,6 +29,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         application.HasOne(a => a.Job).WithMany().HasForeignKey(a => a.JobId)
             .OnDelete(DeleteBehavior.Restrict);
         application.HasOne(a => a.Candidate).WithMany().HasForeignKey(a => a.CandidateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var savedJob = model.Entity<SavedJob>();
+        savedJob.HasIndex(s => new { s.CandidateId, s.JobId }).IsUnique();
+        savedJob.HasOne(s => s.Candidate).WithMany().HasForeignKey(s => s.CandidateId)
+            .OnDelete(DeleteBehavior.Restrict);
+        savedJob.HasOne(s => s.Job).WithMany().HasForeignKey(s => s.JobId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
