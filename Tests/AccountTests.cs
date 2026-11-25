@@ -78,4 +78,22 @@ public class AccountTests(ApiFixture app)
         await ErrorAsync(await app.Admin.Client.PatchAsJsonAsync($"/api/admin/users/{app.Admin.Id}/lock", new {isLocked = true}), HttpStatusCode.Forbidden);
         await ErrorAsync(await app.Admin.Client.PatchAsJsonAsync("/api/admin/users/2147483647/lock", new {isLocked = true}), HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task Forgot_password_creates_reset_token_and_resets_password()
+    {
+        var account = await app.AccountAsync("Candidate");
+        var forgot = await app.Public.PostAsJsonAsync("/api/auth/forgot-password", new { account.Email });
+        var result = await ReadAsync<ForgotPasswordResponse>(forgot);
+        Assert.False(string.IsNullOrWhiteSpace(result.ResetToken));
+
+        string newPassword = "Reset-2026!";
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await app.Public.PostAsJsonAsync("/api/auth/reset-password", new { token = result.ResetToken, newPassword })).StatusCode);
+
+        await ErrorAsync(await app.Public.PostAsJsonAsync("/api/auth/login", new { account.Email, password = Password }), HttpStatusCode.Unauthorized);
+        var login = await ReadAsync<LoginResponse>(await app.Public.PostAsJsonAsync("/api/auth/login", new { account.Email, password = newPassword }));
+        Assert.Equal(account.Id, login.User.Id);
+        await ErrorAsync(await app.Public.PostAsJsonAsync("/api/auth/reset-password", new { token = result.ResetToken, newPassword = "Another-2026!" }), HttpStatusCode.BadRequest);
+    }
 }

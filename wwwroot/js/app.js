@@ -1,12 +1,12 @@
-import {adminUsersPage} from "./admin.js";
-import {dashboard} from "./layout.js";
-import {api, clearSession, hasSession, setUser, user} from "./api.js";
-import {accountPage} from "./account.js";
-import {applicationsPage, applicationPage} from "./applications.js";
-import {jobForm} from "./employer.js";
-import {homePage} from "./home.js";
-import {jobsPage, jobPage} from "./jobs.js";
-import {esc, go, notify, url} from "./ui.js";
+import { accountPage, forgotPasswordPage, resetPasswordPage } from "./account.js";
+import { adminUsersPage } from "./admin.js";
+import { api, clearSession, hasSession, setUser, user } from "./api.js";
+import { applicationPage, applicationsPage } from "./applications.js";
+import { jobForm } from "./employer.js";
+import { homePage } from "./home.js";
+import { jobPage, jobsPage } from "./jobs.js";
+import { dashboard } from "./layout.js";
+import { esc, go, notify, url } from "./ui.js";
 
 const main = document.querySelector("#main");
 let current;
@@ -64,7 +64,7 @@ async function render() {
     const signal = current.signal;
     const destination = location.hash.slice(1) || "/";
     const [path, rawQuery = ""] = destination.split("?");
-    const auth = path === "/login" || path === "/register";
+    const auth = path === "/login" || path === "/register" || path === "/forgot-password" || path === "/reset-password";
     const managed = path.startsWith("/admin/") || path.startsWith("/employer") || path.startsWith("/applications");
     document.body.classList.toggle("auth-page", auth);
     document.querySelector("#quick-search").elements.keyword.value = path === "/jobs" ? new URLSearchParams(rawQuery).get("keyword") || "" : "";
@@ -95,6 +95,8 @@ async function render() {
         else if ((match = path.match(/^\/employer\/(\d+)\/applications$/)) && requireUser("Employer",destination)) await applicationsPage(ctx,match[1]);
         else if (path === "/applications" && requireUser("Candidate",destination)) await applicationsPage(ctx);
         else if ((match = path.match(/^\/applications\/(\d+)$/)) && requireUser(null,destination)) await applicationPage(ctx,match[1]);
+        else if (path === "/forgot-password") forgotPasswordPage(ctx);
+        else if (path === "/reset-password") resetPasswordPage(ctx);
         else if (location.hash.slice(1) === destination) throw new Error("Không tìm thấy trang.");
         signal.throwIfAborted();
         document.title = (main.querySelector("h1")?.textContent || "Tìm việc") + " · Việc Mở";

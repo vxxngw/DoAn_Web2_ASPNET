@@ -42,7 +42,7 @@ public class UserRepository(AppDbContext db) : IUserRepository
         db.Users.SingleOrDefaultAsync(u => u.Email == email, ct);
 
     public Task<User?> FindAsync(int id, CancellationToken ct) =>
-        db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == id, ct);
+        db.Users.SingleOrDefaultAsync(u => u.Id == id, ct);
 
     public async Task<bool> TryAddAsync(User user, CancellationToken ct)
     {
