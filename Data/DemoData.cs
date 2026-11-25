@@ -10,9 +10,6 @@ public static class DemoData
 {
     public static async Task InitializeAsync(AppDbContext db)
     {
-        if (db.Database.GetDbConnection().Database != "RecruitmentWeb2Demo")
-            throw new InvalidOperationException("Profile demo cần database riêng mang tên RecruitmentWeb2Demo.");
-
         await db.Database.MigrateAsync();
         if (await db.Jobs.CountAsync() < 500)
             await SeedLargeDatasetAsync(db);

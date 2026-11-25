@@ -26,13 +26,16 @@ public class UserRepository(AppDbContext db) : IUserRepository
     public Task<PagedResult<AccountSummary>> ListAsync(AccountQuery filter, CancellationToken ct)
     {
         var query = db.Users.AsNoTracking();
+        if (filter.Role.HasValue)
+            query = query.Where(u => u.Role == filter.Role.Value);
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
         {
             var keyword = filter.Keyword.Trim();
-            query = query.Where(u => u.Email.Contains(keyword) || u.FullName.Contains(keyword));
+            query = query.Where(u => u.Email.Contains(keyword) || u.FullName.Contains(keyword)
+                || (u.CompanyName != null && u.CompanyName.Contains(keyword)));
         }
         return query.OrderBy(u => u.FullName).ThenBy(u => u.Id)
-            .Select(u => new AccountSummary(u.Id, u.FullName, u.Email, u.Role, u.IsLocked))
+            .Select(u => new AccountSummary(u.Id, u.FullName, u.Email, u.Role, u.IsLocked, u.CompanyName))
             .ToPageAsync(filter, ct);
     }
 
@@ -56,8 +59,13 @@ public class UserRepository(AppDbContext db) : IUserRepository
         {
             if (role == UserRole.Employer)
             {
+                await db.SavedJobs.Where(s => s.Job.EmployerId == id).ExecuteDeleteAsync(ct);
                 await db.Applications.Where(a => a.Job.EmployerId == id).ExecuteDeleteAsync(ct);
                 await db.Jobs.Where(j => j.EmployerId == id).ExecuteDeleteAsync(ct);
+            }
+            else if (role == UserRole.Candidate)
+            {
+                await db.SavedJobs.Where(s => s.CandidateId == id).ExecuteDeleteAsync(ct);
             }
 
             int deleted = await db.Users.Where(u => u.Id == id && u.Role == role).ExecuteDeleteAsync(ct);

@@ -1,13 +1,13 @@
 import {api, user} from "./api.js";
 import {back, badge, confirmAction, date, empty, errorBox, esc, go, icon, notify, pageOf, pageSizeOf, pager, statuses, url} from "./ui.js";
 
-export async function applicationsPage(ctx, jobId) {
-    const route = jobId ? `/employer/${jobId}/applications` : "/applications";
+export async function applicationsPage(ctx, jobId, admin = false) {
+    const route = admin ? "/admin/applications" : jobId ? `/employer/${jobId}/applications` : "/applications";
     const status = Object.hasOwn(statuses, ctx.query.get("status")) ? ctx.query.get("status") : "";
     const page = pageOf(ctx.query);
     const pageSize = pageSizeOf(ctx.query, 6);
     const params = { status, pageSize };
-    const path = jobId ? `/jobs/${jobId}/applications` : "/applications/mine";
+    const path = admin ? "/applications/admin" : jobId ? `/jobs/${jobId}/applications` : "/applications/mine";
     const [result, job] = await Promise.all([
         api(url(path, {status, page, pageSize}), {signal:ctx.signal}),
         jobId ? api(`/jobs/${jobId}`,{signal:ctx.signal}) : null
@@ -20,23 +20,48 @@ export async function applicationsPage(ctx, jobId) {
         `<article class="application-card"><div><h3><a href="#/applications/${item.id}">${esc(jobId ? item.candidateName : item.jobTitle)}</a></h3>
         <p class="metadata">${jobId ? esc(item.candidateEmail) + " · " : ""}Nộp ngày ${date(item.submittedAt)}</p></div>
         <div class="actions">${badge(item.status)}<a class="secondary small" href="#/applications/${item.id}">Xem đơn</a></div></article>`).join("");
-    const noResults = empty(status ? "Không có đơn ở trạng thái này" : "Chưa có đơn ứng tuyển",
-        status ? "Chọn Tất cả để xem các trạng thái khác." : jobId ? "Hồ sơ sẽ xuất hiện khi có ứng viên nộp đơn." : "Hãy chọn một vị trí phù hợp và gửi CV.",
+    const noResults = empty(status ? "Không có đơn ở trạng thái này" : admin ? "Chưa có hồ sơ ứng tuyển" : "Chưa có đơn ứng tuyển",
+        status === "Accepted" ? "Chưa có hồ sơ nào được nhà tuyển dụng chấp nhận." : status === "Rejected" ? "Chưa có hồ sơ nào bị từ chối." : status === "Submitted" ? "Chưa có hồ sơ mới đang chờ xét duyệt." : status === "Withdrawn" ? "Chưa có hồ sơ nào được ứng viên rút." : admin ? "Hồ sơ sẽ xuất hiện khi ứng viên nộp đơn." : jobId ? "Hồ sơ sẽ xuất hiện khi có ứng viên nộp đơn." : "Hãy chọn một vị trí phù hợp và gửi CV.",
         status ? `<a class="secondary" href="#${route}">Tất cả đơn</a>` : jobId ? "" : '<a class="primary" href="#/jobs">Tìm việc</a>');
+    const exportBtn = jobId ? `<button type="button" class="secondary small" id="export-csv" style="display:inline-flex;align-items:center;gap:6px;">${icon("download")} Xuất file CSV</button>` : "";
     const pageSubtitle = totalPages > 1 ? ` · Trang ${result.page}/${totalPages}` : "";
     ctx.show(`${jobId ? back(`/job/${jobId}`,"Chi tiết tin") : ""}
-      <header class="page-intro"><h1>${jobId ? "Hồ sơ ứng tuyển" : "Đơn đã nộp"}</h1>${job ? `<p>${esc(job.title)}</p>` : ""}</header>
-      <div class="toolbar"><div class="chips">${chips}</div><span class="count">${result.totalCount} đơn${pageSubtitle}</span></div>
+      <header class="page-intro"><h1>${admin ? "Hồ sơ ứng tuyển toàn hệ thống" : jobId ? "Hồ sơ ứng tuyển" : "Đơn đã nộp"}</h1>${job ? `<p>${esc(job.title)}</p>` : ""}</header>
+      <div class="toolbar"><div class="chips">${chips}</div><div style="display:flex;align-items:center;gap:12px;">${exportBtn}<span class="count">${result.totalCount} đơn${pageSubtitle}</span></div></div>
       <div class="application-list">${listing || noResults}</div>${pager(result,route,params)}`);
+
+    if (jobId) {
+        const btn = document.querySelector("#export-csv");
+        if (btn) {
+            btn.onclick = async () => {
+                btn.disabled = true;
+                try {
+                    const blob = await api(`/jobs/${jobId}/applications/export`, {blob: true});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `ung-vien-${jobId}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    notify("Đã tải xuống danh sách ứng viên (file CSV).");
+                } catch (err) {
+                    notify(err.message);
+                } finally {
+                    btn.disabled = false;
+                }
+            };
+        }
+    }
 }
 
 export async function applicationPage(ctx, id) {
     const app = await api(`/applications/${id}`,{signal:ctx.signal});
     const employer = user.role === "Employer";
     const candidate = user.role === "Candidate";
+    const admin = user.role === "Admin";
     const review = employer && app.status === "Submitted";
     const withdraw = candidate && app.status === "Submitted";
-    ctx.show(`<div class="narrow">${back(employer ? `/employer/${app.jobId}/applications` : "/applications",employer ? "Hồ sơ ứng tuyển" : "Đơn đã nộp")}
+    ctx.show(`<div class="narrow">${back(admin ? "/admin/applications" : employer ? `/employer/${app.jobId}/applications` : "/applications",admin ? "Hồ sơ toàn hệ thống" : employer ? "Hồ sơ ứng tuyển" : "Đơn đã nộp")}
       <article class="panel stack"><div class="actions balance"><span class="muted">Đơn #${app.id}</span>${badge(app.status)}</div>
       <h1>${esc(app.jobTitle)}</h1><div><strong>${esc(app.candidateName)}</strong><p class="muted">${esc(app.candidateEmail)}</p></div>
       <p class="metadata"><span>${icon("clock")}Nộp lúc ${date(app.submittedAt,true)}</span></p>

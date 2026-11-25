@@ -22,12 +22,15 @@ export function searchForm(params, filters = false) {
       <button class="primary" type="submit">Tìm việc</button></form>`;
 }
 
-export function card(job, mine) {
+export function card(job, mine, isSaved = false) {
     const target = `/job/${job.id}`;
+    const saveButton = user?.role === "Candidate" && !mine
+        ? `<button type="button" class="icon-button bookmark-button ${isSaved ? "saved" : ""}" data-save-job="${job.id}" aria-label="${isSaved ? "Bỏ lưu tin" : "Lưu tin"}" title="${isSaved ? "Bỏ lưu tin" : "Lưu tin"}">${icon(isSaved ? "heartFilled" : "heart")}</button>`
+        : "";
     return `<article class="job-card">
       <div class="job-card-header">
         <h3><a href="#${target}">${esc(job.title)}</a></h3>
-        <span class="job-salary">${icon("tag")}${salary(job.minSalary, job.maxSalary)}</span>
+        <div class="job-card-tools"><span class="job-salary">${icon("tag")}${salary(job.minSalary, job.maxSalary)}</span>${saveButton}</div>
       </div>
       <div class="job-facts">${jobBadge(job)}<span>Hạn nộp ${date(job.deadline)}</span></div>
       <div class="card-company">${avatar(job.companyName)}<div><strong>${esc(job.companyName)}</strong>
@@ -107,6 +110,47 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
       </div></div>
       ${result.items.length ? `<div class="cards">${result.items.map(j => card(j,mine)).join("")}</div>` : none}
       ${pager(result,route,params)}`;
+    if (user?.role === "Candidate") {
+        const jobIds = result.items.map(job => job.id);
+        api(`/jobs/saved-ids?${jobIds.map(id => `ids=${id}`).join("&")}`, {signal:ctx.signal})
+            .then(savedIds => {
+                const savedSet = new Set(savedIds);
+                const cards = document.querySelectorAll(".job-card");
+                cards.forEach((cardElement, index) => {
+                    const job = result.items[index];
+                    const button = cardElement.querySelector(`[data-save-job="${job.id}"]`);
+                    if (!button) return;
+                    if (savedSet.has(job.id)) {
+                        button.classList.add("saved");
+                        button.innerHTML = icon("heartFilled");
+                        button.setAttribute("aria-label", "Bỏ lưu tin");
+                        button.title = "Bỏ lưu tin";
+                    }
+                });
+            }).catch(() => {});
+    }
+    const jobsResults = document.querySelector("#jobs-results");
+    if (jobsResults) jobsResults.onclick = async event => {
+        const button = event.target.closest("button[data-save-job]");
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const jobId = Number(button.dataset.saveJob);
+        const isSaved = button.classList.contains("saved");
+        button.disabled = true;
+        try {
+            await api(`/jobs/${jobId}/save`, {method: isSaved ? "DELETE" : "POST"});
+            button.classList.toggle("saved", !isSaved);
+            button.innerHTML = icon(!isSaved ? "heartFilled" : "heart");
+            button.setAttribute("aria-label", isSaved ? "Lưu tin" : "Bỏ lưu tin");
+            button.title = isSaved ? "Lưu tin" : "Bỏ lưu tin";
+            notify(isSaved ? "Đã bỏ lưu tin tuyển dụng." : "Đã lưu việc làm vào danh sách yêu thích.");
+        } catch (err) {
+            notify(err.message);
+        } finally {
+            button.disabled = false;
+        }
+    };
     if (toggle) {
         const filters = document.querySelector("#job-filters");
         toggle.disabled = false;
@@ -120,9 +164,11 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
 }
 
 export async function jobPage(ctx, id) {
-    const [job, previous] = await Promise.all([
+    const isCandidate = user?.role === "Candidate";
+    const [job, previous, savedCheck] = await Promise.all([
         api(`/jobs/${id}`,{signal:ctx.signal}),
-        user?.role === "Candidate" ? api(`/applications/mine?jobId=${id}&pageSize=1`,{signal:ctx.signal}) : null
+        isCandidate ? api(`/applications/mine?jobId=${id}&pageSize=1`,{signal:ctx.signal}) : null,
+        isCandidate ? api(`/jobs/${id}/is-saved`,{signal:ctx.signal}).catch(() => ({isSaved:false})) : null
     ]);
     const owner = user?.id === job.employerId;
     const admin = user?.role === "Admin";
@@ -146,6 +192,8 @@ export async function jobPage(ctx, id) {
     } else {
         side = `<h2>Thông tin tuyển dụng</h2>${jobBadge(job)}<p class="muted">Nhà tuyển dụng nhận hồ sơ từ tài khoản ứng viên.</p>`;
     }
+    const saveBtnMarkup = isCandidate ?
+        `<div style="margin-top:12px;"><button type="button" id="btn-save-job" class="secondary" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;">${savedCheck?.isSaved ? icon("heartFilled") + " Đã lưu việc làm" : icon("heart") + " Lưu tin tuyển dụng"}</button></div>` : "";
     const parent = admin ? ["/admin/jobs","Quản lý tin tuyển dụng"] : owner ? ["/employer","Tin của tôi"] : ["/jobs","Tìm việc"];
     ctx.show(breadcrumb("Chi tiết việc làm", parent) + `<div class="wrap detail">
       <div class="detail-heading">${avatar(job.companyName)}<div><h1>${esc(job.title)}</h1>
@@ -157,13 +205,39 @@ export async function jobPage(ctx, id) {
       <div>${art("timer")}<dt>Hạn nộp</dt><dd>${date(job.deadline,true)}</dd></div>
       <div>${art("map")}<dt>Địa điểm</dt><dd>${esc(job.location)}</dd></div>
       <div>${icon("tag")}<dt>Mức lương</dt><dd class="salary-highlight"><strong>${salary(job.minSalary, job.maxSalary)}</strong></dd></div></dl></section>
-      <section class="panel stack apply-panel" id="apply-panel" tabindex="-1">${side}</section></aside></div></div><section class="wrap home-section related" hidden><h2>Việc làm cùng địa điểm</h2><div class="cards"></div></section>`);
+      <section class="panel stack apply-panel" id="apply-panel" tabindex="-1">${side}${saveBtnMarkup}</section></aside></div></div><section class="wrap home-section related" hidden><h2>Việc làm cùng địa điểm</h2><div class="cards"></div></section>`);
     document.querySelector("#jump-apply").onclick = () => {
         const panel = document.querySelector("#apply-panel");
         const action = panel.querySelector("a.primary");
         if (action) action.click();
         else (panel.querySelector('input[type="file"]') || panel).focus();
     };
+    if (isCandidate) {
+        let isSaved = Boolean(savedCheck?.isSaved);
+        const saveBtn = document.querySelector("#btn-save-job");
+        if (saveBtn) {
+            saveBtn.onclick = async () => {
+                saveBtn.disabled = true;
+                try {
+                    if (isSaved) {
+                        await api(`/jobs/${id}/save`, {method: "DELETE"});
+                        isSaved = false;
+                        saveBtn.innerHTML = `${icon("heart")} Lưu tin tuyển dụng`;
+                        notify("Đã bỏ lưu tin tuyển dụng.");
+                    } else {
+                        await api(`/jobs/${id}/save`, {method: "POST"});
+                        isSaved = true;
+                        saveBtn.innerHTML = `${icon("heartFilled")} Đã lưu việc làm`;
+                        notify("Đã lưu việc làm vào danh sách yêu thích.");
+                    }
+                } catch (err) {
+                    notify(err.message);
+                } finally {
+                    saveBtn.disabled = false;
+                }
+            };
+        }
+    }
     if (document.querySelector("#apply")) bindForm("apply",async data => {
         if (data.get("cv").size > 5 * 1024 * 1024) throw new Error("CV vượt quá 5 MiB.");
         const created = await api(`/jobs/${id}/applications`,{method:"POST",body:data});

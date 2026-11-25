@@ -7,7 +7,7 @@ using Recruitment.Api.Services;
 namespace Recruitment.Api.Controllers;
 
 [Route("api/jobs")]
-public class JobsController(IJobService jobs) : ApiControllerBase
+public class JobsController(IJobService jobs, ISavedJobService savedJobs) : ApiControllerBase
 {
     private const string JobManagers = nameof(UserRole.Employer) + "," + nameof(UserRole.Admin);
     private bool IsAdmin => User.IsInRole(nameof(UserRole.Admin));
@@ -64,5 +64,51 @@ public class JobsController(IJobService jobs) : ApiControllerBase
     {
         await jobs.DeleteAsync(id, UserId, ct, IsAdmin);
         return NoContent();
+    }
+
+    [Authorize(Roles = nameof(UserRole.Candidate))]
+    [HttpGet("saved")]
+    [ProducesResponseType<PagedResult<SavedJobResponse>>(200)]
+    public Task<PagedResult<SavedJobResponse>> ListSaved([FromQuery] PageQuery query, CancellationToken ct) =>
+        savedJobs.ListSavedJobsAsync(UserId, query, ct);
+
+    [Authorize(Roles = nameof(UserRole.Candidate))]
+    [HttpGet("saved-ids")]
+    public Task<List<int>> GetSavedIds([FromQuery] List<int> ids, CancellationToken ct) =>
+        savedJobs.GetSavedJobIdsAsync(UserId, ids, ct);
+
+    [Authorize(Roles = nameof(UserRole.Candidate))]
+    [HttpGet("{id:int}/is-saved")]
+    public async Task<ActionResult<object>> CheckSaved(int id, CancellationToken ct) =>
+        Ok(new { isSaved = await savedJobs.IsSavedAsync(UserId, id, ct) });
+
+    [Authorize(Roles = nameof(UserRole.Candidate))]
+    [HttpPost("{id:int}/save")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType<ProblemDetails>(404, "application/problem+json")]
+    public async Task<IActionResult> Save(int id, CancellationToken ct)
+    {
+        await savedJobs.SaveJobAsync(UserId, id, ct);
+        return NoContent();
+    }
+
+    [Authorize(Roles = nameof(UserRole.Candidate))]
+    [HttpDelete("{id:int}/save")]
+    [ProducesResponseType(204)]
+    public async Task<IActionResult> Unsave(int id, CancellationToken ct)
+    {
+        await savedJobs.UnsaveJobAsync(UserId, id, ct);
+        return NoContent();
+    }
+
+    [Authorize(Roles = JobManagers)]
+    [HttpGet("{id:int}/applications/export")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType<ProblemDetails>(403, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(404, "application/problem+json")]
+    public async Task<IActionResult> ExportApplications(int id, [FromServices] IApplicationExportService exporter, CancellationToken ct)
+    {
+        var (bytes, fileName) = await exporter.ExportApplicationsCsvAsync(id, UserId, IsAdmin, ct);
+        return File(bytes, "text/csv; charset=utf-8", fileName);
     }
 }

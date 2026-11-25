@@ -6,9 +6,10 @@ namespace Recruitment.Api.DTOs;
 public class AccountQuery : PageQuery
 {
     [MaxLength(254)] public string? Keyword { get; set; }
+    [EnumDataType(typeof(UserRole))] public UserRole? Role { get; set; }
 }
 
-public record AccountSummary(int Id, string FullName, string Email, UserRole Role, bool IsLocked);
+public record AccountSummary(int Id, string FullName, string Email, UserRole Role, bool IsLocked, string? CompanyName);
 
 public class AccountLockRequest
 {

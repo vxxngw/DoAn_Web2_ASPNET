@@ -105,11 +105,13 @@ public class ApplicationTests(ApiFixture app)
             Assert.True(pdf.Headers.CacheControl?.NoStore);
             Assert.Equal(Pdf, await pdf.Content.ReadAsByteArrayAsync());
         }
-        foreach (var actor in new[] {foreignEmployer, foreignCandidate, app.Admin})
+        foreach (var actor in new[] {foreignEmployer, foreignCandidate})
         {
             await ErrorAsync(await actor.Client.GetAsync(detail), HttpStatusCode.NotFound);
             await ErrorAsync(await actor.Client.GetAsync(detail + "/cv"), HttpStatusCode.NotFound);
         }
+        Assert.Equal(HttpStatusCode.OK, (await app.Admin.Client.GetAsync(detail)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await app.Admin.Client.GetAsync(detail + "/cv")).StatusCode);
         await ErrorAsync(await app.Public.GetAsync(detail + "/cv"), HttpStatusCode.Unauthorized);
         await ErrorAsync(await foreignEmployer.Client.GetAsync(list), HttpStatusCode.Forbidden);
         await ErrorAsync(await candidate.Client.PatchAsJsonAsync(detail + "/status", new {status="Accepted"}), HttpStatusCode.Forbidden);
@@ -121,6 +123,27 @@ public class ApplicationTests(ApiFixture app)
         var waiting = await ReadAsync<PagedResult<ApplicationResponse>>(await employer.Client.GetAsync(list+"?status=Submitted"));
         Assert.Equal(0, waiting.TotalCount);
         await ErrorAsync(await app.Admin.Client.DeleteAsync($"/api/jobs/{job.Id}"), HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Admin_can_list_all_applications_by_status_but_candidates_and_employer_cannot()
+    {
+        var employer = await app.AccountAsync("Employer");
+        var candidate = await app.AccountAsync("Candidate");
+        var job = await CreateJobAsync(employer, NewJob());
+        using var form = Form();
+        var created = await ReadAsync<CreatedResponse>(await candidate.Client.PostAsync($"/api/jobs/{job.Id}/applications", form), HttpStatusCode.Created);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await employer.Client.PatchAsJsonAsync($"/api/applications/{created.Id}/status", new {status="Accepted"})).StatusCode);
+
+        var accepted = await ReadAsync<PagedResult<ApplicationResponse>>(await app.Admin.Client.GetAsync("/api/applications/admin?status=Accepted"));
+        Assert.Equal(created.Id, Assert.Single(accepted.Items).Id);
+
+        await ErrorAsync(await candidate.Client.GetAsync("/api/applications/admin"), HttpStatusCode.Forbidden);
+        await ErrorAsync(await employer.Client.GetAsync("/api/applications/admin"), HttpStatusCode.Forbidden);
+
+        var rejected = await ReadAsync<PagedResult<ApplicationResponse>>(await app.Admin.Client.GetAsync("/api/applications/admin?status=Rejected"));
+        Assert.Equal(0, rejected.TotalCount);
     }
 
     [Fact]

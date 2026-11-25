@@ -14,8 +14,9 @@ public interface IApplicationRepository
     Task<SubmissionResult> SubmitAsync(JobApplication application, CancellationToken ct);
     Task<PagedResult<ApplicationResponse>> ListForCandidateAsync(int candidateId, ApplicationQuery query, CancellationToken ct);
     Task<PagedResult<ApplicationResponse>> ListForJobAsync(int jobId, ApplicationQuery query, CancellationToken ct);
-    Task<ApplicationResponse?> GetVisibleAsync(int id, int viewerId, CancellationToken ct);
-    Task<byte[]?> GetCvAsync(int id, int viewerId, CancellationToken ct);
+    Task<PagedResult<ApplicationResponse>> ListAllAsync(ApplicationQuery query, CancellationToken ct);
+    Task<ApplicationResponse?> GetVisibleAsync(int id, int viewerId, bool isAdmin, CancellationToken ct);
+    Task<byte[]?> GetCvAsync(int id, int viewerId, bool isAdmin, CancellationToken ct);
     Task<bool> TryReviewAsync(int id, int employerId, ApplicationStatus status, CancellationToken ct);
     Task<bool> TryWithdrawAsync(int id, int candidateId, CancellationToken ct);
 }
@@ -77,6 +78,9 @@ public class ApplicationRepository(AppDbContext db) : IApplicationRepository
     public Task<PagedResult<ApplicationResponse>> ListForJobAsync(int jobId, ApplicationQuery query, CancellationToken ct) =>
         ListAsync(db.Applications.Where(a => a.JobId == jobId), query, ct);
 
+    public Task<PagedResult<ApplicationResponse>> ListAllAsync(ApplicationQuery query, CancellationToken ct) =>
+        ListAsync(db.Applications, query, ct);
+
     private static Task<PagedResult<ApplicationResponse>> ListAsync(IQueryable<JobApplication> applications, ApplicationQuery query, CancellationToken ct)
     {
         if (query.JobId.HasValue)
@@ -90,11 +94,17 @@ public class ApplicationRepository(AppDbContext db) : IApplicationRepository
     private IQueryable<JobApplication> VisibleTo(int viewerId) =>
         db.Applications.AsNoTracking().Where(a => a.CandidateId == viewerId || a.Job.EmployerId == viewerId);
 
-    public Task<ApplicationResponse?> GetVisibleAsync(int id, int viewerId, CancellationToken ct) =>
-        VisibleTo(viewerId).Where(a => a.Id == id).Select(ToResponse).SingleOrDefaultAsync(ct);
+    public Task<ApplicationResponse?> GetVisibleAsync(int id, int viewerId, bool isAdmin, CancellationToken ct)
+    {
+        var applications = isAdmin ? db.Applications.AsNoTracking() : VisibleTo(viewerId);
+        return applications.Where(a => a.Id == id).Select(ToResponse).SingleOrDefaultAsync(ct);
+    }
 
-    public Task<byte[]?> GetCvAsync(int id, int viewerId, CancellationToken ct) =>
-        VisibleTo(viewerId).Where(a => a.Id == id).Select(a => a.CvPdf).SingleOrDefaultAsync(ct);
+    public Task<byte[]?> GetCvAsync(int id, int viewerId, bool isAdmin, CancellationToken ct)
+    {
+        var applications = isAdmin ? db.Applications.AsNoTracking() : VisibleTo(viewerId);
+        return applications.Where(a => a.Id == id).Select(a => a.CvPdf).SingleOrDefaultAsync(ct);
+    }
 
     public async Task<bool> TryReviewAsync(int id, int employerId, ApplicationStatus status, CancellationToken ct)
     {

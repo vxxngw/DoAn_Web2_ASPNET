@@ -6,9 +6,10 @@ const roles = {Candidate:"Ứng viên", Employer:"Nhà tuyển dụng", Admin:"Q
 export async function adminUsersPage(ctx) {
     const route = "/admin/users";
     const keyword = ctx.query.get("keyword") || "";
+    const role = ctx.query.get("role") === "Employer" ? "Employer" : "Candidate";
     const page = pageOf(ctx.query);
     const pageSize = pageSizeOf(ctx.query, 10);
-    const params = { keyword, pageSize };
+    const params = { keyword, role, pageSize };
     const result = await api(url("/admin/users", {...params, page}), {signal:ctx.signal});
     ctx.signal.throwIfAborted();
     const totalPages = result.totalPages ?? Math.max(1, Math.ceil(result.totalCount / result.pageSize));
@@ -18,12 +19,16 @@ export async function adminUsersPage(ctx) {
     }
 
     const rows = result.items.map(account => `<article class="application-card">
-        <div><h3>${esc(account.fullName)}</h3><p class="metadata">${esc(account.email)} · ${roles[account.role]}</p></div>
+        <div><h3>${esc(account.role === "Employer" && account.companyName ? account.companyName : account.fullName)}</h3><p class="metadata">${esc(account.email)} · ${roles[account.role]}${account.role === "Employer" && account.companyName ? ` · ${esc(account.fullName)}` : ""}</p></div>
         <div class="actions"><span class="badge ${account.isLocked ? "closed" : "open"}">${account.isLocked ? "Đã khóa" : "Hoạt động"}</span>
         ${account.role === "Admin" ? "" : `<button type="button" class="secondary small" data-action="lock" data-account="${account.id}">${account.isLocked ? "Mở khóa" : "Khóa"}</button>
         <button type="button" class="danger small" data-action="delete" data-account="${account.id}">Xóa</button>`}</div></article>`).join("");
     const pageSubtitle = totalPages > 1 ? ` · Trang ${result.page}/${totalPages}` : "";
-    ctx.show(`<header class="page-intro"><h1>Tài khoản người dùng</h1></header>
+    ctx.show(`<header class="page-intro"><h1>${role === "Employer" ? "Tài khoản nhà tuyển dụng" : "Tài khoản ứng viên"}</h1></header>
+        <div class="chips" aria-label="Loại tài khoản" style="margin-bottom:18px;">
+          <a class="chip ${role === "Candidate" ? "current" : ""}" href="#/admin/users?role=Candidate">Ứng viên</a>
+          <a class="chip ${role === "Employer" ? "current" : ""}" href="#/admin/users?role=Employer">Nhà tuyển dụng</a>
+        </div>
         <form class="actions" id="account-search" role="search"><label class="field"><span class="sr-only">Tên hoặc email</span>
         <input type="search" name="keyword" placeholder="Tìm theo tên hoặc email" maxlength="254" value="${esc(keyword)}"></label>
         <button type="submit" class="primary">Tìm kiếm</button></form>

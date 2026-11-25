@@ -26,6 +26,12 @@ public class ApplicationsController(IApplicationService applications) : ApiContr
         return CreatedAtAction(nameof(Get), new { id }, new CreatedResponse(id));
     }
 
+    [Authorize(Roles = nameof(UserRole.Admin))]
+    [HttpGet("admin")]
+    [ProducesResponseType<PagedResult<ApplicationResponse>>(200)]
+    public Task<PagedResult<ApplicationResponse>> AdminList([FromQuery] ApplicationQuery query, CancellationToken ct) =>
+        applications.ListAllAsync(query, ct);
+
     [Authorize(Roles = nameof(UserRole.Candidate))]
     [HttpGet("mine")]
     [ProducesResponseType<PagedResult<ApplicationResponse>>(200)]
@@ -44,14 +50,15 @@ public class ApplicationsController(IApplicationService applications) : ApiContr
     [HttpGet("{id:int}")]
     [ProducesResponseType<ApplicationResponse>(200)]
     [ProducesResponseType<ProblemDetails>(404, "application/problem+json")]
-    public Task<ApplicationResponse> Get(int id, CancellationToken ct) => applications.GetAsync(id, UserId, ct);
+    public Task<ApplicationResponse> Get(int id, CancellationToken ct) =>
+        applications.GetAsync(id, UserId, User.IsInRole(nameof(UserRole.Admin)), ct);
 
     [HttpGet("{id:int}/cv")]
     [ProducesResponseType(typeof(FileContentResult), 200, "application/pdf")]
     [ProducesResponseType<ProblemDetails>(404, "application/problem+json")]
     public async Task<IActionResult> DownloadCv(int id, CancellationToken ct)
     {
-        byte[] pdf = await applications.GetCvAsync(id, UserId, ct);
+        byte[] pdf = await applications.GetCvAsync(id, UserId, User.IsInRole(nameof(UserRole.Admin)), ct);
         Response.Headers.CacheControl = "no-store";
         return File(pdf, "application/pdf", $"cv-{id}.pdf");
     }
