@@ -1,9 +1,19 @@
 import {art, breadcrumb} from "./layout.js";
 import {api, user} from "./api.js";
-import {activeJob, avatar, bindForm, date, empty, errorBox, esc, go, icon, notify, pageOf, pager, url} from "./ui.js";
+import {saveButton} from "./saved.js";
+import {activeJob, companyAvatar, bindForm, date, empty, errorBox, esc, go, icon, notify, pageOf, pager, url} from "./ui.js";
 
-const cities = ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng"];
-const sorts = {Newest:"Mới nhất", Deadline:"Sắp hết hạn", Title:"Tên vị trí A–Z"};
+export const cities = ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng"];
+const dong = new Intl.NumberFormat("vi-VN");
+
+export function salaryText(job) {
+    if (job.isSalaryNegotiable === true) return "Thỏa thuận";
+    if (job.salaryMin == null || job.salaryMax == null) return "Chưa cung cấp";
+    const amount = job.salaryMin === job.salaryMax ? dong.format(job.salaryMin) :
+        `${dong.format(job.salaryMin)} – ${dong.format(job.salaryMax)}`;
+    return `${amount} ₫/tháng`;
+}
+const sorts = {Newest:"Mới nhất", Featured:"Nổi bật", Deadline:"Sắp hết hạn", Title:"Tên vị trí A–Z"};
 
 export function searchForm(params, filters = false) {
     return `<form id="search-jobs" class="search-form" role="search">
@@ -15,18 +25,21 @@ export function searchForm(params, filters = false) {
       <button class="primary" type="submit">Tìm việc</button></form>`;
 }
 
-export function card(job, mine) {
+export function card(job, mine, allJobs = false, available = true) {
     const target = `/job/${job.id}`;
     return `<article class="job-card">
-      <h3><a href="#${target}">${esc(job.title)}</a></h3>
+      <h3>${available ? `<a href="#${target}">${esc(job.title)}</a>` : esc(job.title)}</h3>
+      <p class="job-salary">Lương · ${salaryText(job)}</p>
       <div class="job-facts">${jobBadge(job)}<span>Hạn nộp ${date(job.deadline)}</span></div>
-      <div class="card-company">${avatar(job.companyName)}<div><strong>${esc(job.companyName)}</strong>
+      <div class="card-company">${companyAvatar(job)}<div><strong>${esc(job.companyName)}</strong>
         <span class="job-location">${art("pin")}${esc(job.location)}</span></div>
-        ${mine ? `<a class="card-link" href="#/employer/${job.id}/applications">Xem hồ sơ</a>` : ""}</div>
-    </article>`;
+        ${mine ? `<a class="card-link" href="#/employer/${job.id}/applications">Xem hồ sơ</a>` : ""}
+        ${allJobs ? `<a class="card-link" href="#/admin/jobs/${job.id}/edit">Quản lý tin</a>` : ""}</div>
+      ${saveButton(job)}</article>`;
 }
 
 function jobBadge(job) {
+    if (job.archived) return '<span class="badge closed">Đã lưu trữ</span>';
     const open = activeJob(job);
     return `<span class="badge ${open ? "open" : "closed"}">${open ? "Đang nhận đơn" : job.employerLocked ? "Công ty bị khóa" : job.isOpen ? "Hết hạn" : "Đã đóng"}</span>`;
 }
@@ -35,6 +48,8 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
     const managed = mine || allJobs;
     const route = allJobs ? "/admin/jobs" : mine ? "/employer" : "/jobs";
     const params = {
+        employerId: managed ? null : ctx.query.get("employerId"),
+        industry: ctx.query.get("industry"),
         keyword: ctx.query.get("keyword") || "", location: ctx.query.get("location") || "",
         sort: Object.hasOwn(sorts, ctx.query.get("sort")) ? ctx.query.get("sort") : "Newest"
     };
@@ -67,7 +82,7 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
     }).join("");
     const sort = Object.entries(sorts).map(([key, label]) =>
         `<option value="${key}" ${params.sort === key ? "selected" : ""}>${label}</option>`).join("");
-    const filtered = Boolean(params.keyword || params.location);
+    const filtered = Boolean(params.keyword || params.location || params.employerId || params.industry);
     const none = filtered
         ? empty("Chưa tìm thấy tin phù hợp", "Thử từ khóa khác hoặc mở rộng địa điểm tìm kiếm.", `<a class="secondary" href="#${route}">Xóa bộ lọc</a>`)
         : empty(mine ? "Bạn chưa đăng tin nào" : "Chưa có tin đang tuyển", mine ? "Đăng tin đầu tiên để bắt đầu nhận hồ sơ." : "Tin sẽ hiển thị tại đây khi nhà tuyển dụng đăng và mở nhận đơn.",
@@ -75,8 +90,10 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
     document.querySelector("#jobs-results").innerHTML = `<div id="job-filters" ${!managed && !filtered && params.sort === "Newest" ? "hidden" : ""}><div class="section-head"><div class="title-count">
       <h2>${managed ? "Danh sách tin" : "Việc làm đang tuyển"}</h2><span class="count">${result.totalCount} vị trí</span></div>
       <label class="sort-control">${icon("sort")}Sắp xếp<select id="sort">${sort}</select></label></div>
+      ${params.employerId ? `<p class="employer-filter">Công ty: ${esc(result.items[0]?.companyName || "Đã chọn")} · <a href="#${esc(url(route,{...params,employerId:null}))}">Bỏ lọc công ty</a></p>` : ""}
+      ${params.industry ? `<p class="employer-filter">Ngành nghề: ${esc(params.industry)} · <a href="#${esc(url(route,{...params,industry:null}))}">Bỏ lọc ngành</a></p>` : ""}
       <div class="chips" aria-label="Lọc địa điểm">${chips}</div></div>
-      ${result.items.length ? `<div class="cards">${result.items.map(j => card(j,mine)).join("")}</div>` : none}
+      ${result.items.length ? `<div class="cards">${result.items.map(j => card(j,mine,allJobs)).join("")}</div>` : none}
       ${pager(result,route,params)}`;
     if (toggle) {
         const filters = document.querySelector("#job-filters");
@@ -88,6 +105,18 @@ export async function jobsPage(ctx, mine = false, allJobs = false) {
         };
     }
     document.querySelector("#sort").onchange = e => go(url(route,{...params, sort:e.target.value}));
+}
+
+export async function savedJobsPage(ctx) {
+    const page = pageOf(ctx.query);
+    const result = await api(url("/saved-jobs",{page,pageSize:12}), {signal:ctx.signal});
+    ctx.signal.throwIfAborted();
+    const last = Math.max(1, Math.ceil(result.totalCount / result.pageSize));
+    if (page > last) { location.replace("#" + url("/saved-jobs",{page:last})); return; }
+    ctx.show(`<section><header class="section-head page-intro"><h1>Việc đã lưu</h1><span class="count">${result.totalCount} tin</span></header>
+      ${result.items.length ? `<div class="cards">${result.items.map(j => card({...j,isSaved:true},false,false,activeJob(j))).join("")}</div>` :
+          empty("Bạn chưa lưu tin nào","Bấm Lưu tin ở vị trí bạn quan tâm để xem lại tại đây.",'<a class="secondary" href="#/jobs">Tìm việc</a>')}
+      ${pager(result,"/saved-jobs",{})}</section>`);
 }
 
 export async function jobPage(ctx, id) {
@@ -102,7 +131,7 @@ export async function jobPage(ctx, id) {
         side = `<h2>Quản lý tin</h2><a class="primary" href="#/admin/jobs/${id}/edit">Chỉnh sửa tin</a>`;
     } else if (owner) {
         side = `<h2>Quản lý tin</h2>${jobBadge(job)}<div class="actions"><a class="primary" href="#/employer/${id}/applications">Hồ sơ ứng tuyển</a>
-          <a class="secondary" href="#/employer/${id}/edit">Chỉnh sửa tin</a></div>`;
+          ${job.archived ? '<a class="secondary" href="#/employer/report">Báo cáo</a>' : `<a class="secondary" href="#/employer/${id}/edit">Chỉnh sửa tin</a>`}</div>`;
     } else if (previous?.items.length) {
         const app = previous.items[0];
         side = `<h2>Bạn đã ứng tuyển</h2><p class="muted">Đã nộp ngày ${date(app.submittedAt)}.</p><a class="primary" href="#/applications/${app.id}">Xem đơn của tôi</a>`;
@@ -119,15 +148,35 @@ export async function jobPage(ctx, id) {
     }
     const parent = admin ? ["/admin/jobs","Quản lý tin tuyển dụng"] : owner ? ["/employer","Tin của tôi"] : ["/jobs","Tìm việc"];
     ctx.show(breadcrumb("Chi tiết việc làm", parent) + `<div class="wrap detail">
-      <div class="detail-heading">${avatar(job.companyName)}<div><h1>${esc(job.title)}</h1>
+      <div class="detail-heading">${companyAvatar(job)}<div><h1>${esc(job.title)}</h1>
       <div class="detail-company">${esc(job.companyName)} ${jobBadge(job)}</div></div>
+      ${saveButton(job)}
       <button class="primary jump-apply" type="button" id="jump-apply">${admin || owner ? "Quản lý tin" : previous?.items.length ? "Xem đơn" : user?.role === "Employer" ? "Thông tin tuyển dụng" : "Ứng tuyển"}${art("arrow")}</button></div>
-      <div class="detail-grid"><article class="description"><h2>Mô tả công việc</h2><p class="body-copy">${esc(job.description)}</p></article>
+      <div class="detail-grid"><article class="description"><h2>Mô tả công việc</h2><p class="body-copy">${esc(job.description)}</p>
+        ${job.jdUrl ? `<a class="secondary" href="${esc(job.jdUrl)}" target="_blank" rel="noopener noreferrer">Mở đường dẫn JD ↗</a>` : ""}
+        ${job.hasJdPdf && activeJob(job) ? `<a class="secondary" href="/api/jobs/${id}/jd" target="_blank" rel="noopener">Xem JD (PDF) ↗</a>` : ""}
+        ${job.hasJdPdf ? '<button class="secondary" id="download-jd" type="button">Tải JD (PDF)</button><p class="form-error" role="alert" id="jd-error"></p>' : ""}</article>
       <aside class="stack"><section class="panel overview"><h2>Thông tin công việc</h2><dl>
       <div>${art("calendar")}<dt>Ngày đăng</dt><dd>${date(job.createdAt)}</dd></div>
       <div>${art("timer")}<dt>Hạn nộp</dt><dd>${date(job.deadline,true)}</dd></div>
-      <div>${art("map")}<dt>Địa điểm</dt><dd>${esc(job.location)}</dd></div></dl></section>
+      <div>${art("briefcase")}<dt>Mức lương</dt><dd>${salaryText(job)}</dd></div>
+      <div>${art("map")}<dt>Địa điểm</dt><dd>${esc(job.location)}</dd></div>
+      ${job.industry ? `<div>${art("briefcase")}<dt>Ngành nghề</dt><dd>${esc(job.industry)}</dd></div>` : ""}</dl></section>
       <section class="panel stack apply-panel" id="apply-panel" tabindex="-1">${side}</section></aside></div></div><section class="wrap home-section related" hidden><h2>Việc làm cùng địa điểm</h2><div class="cards"></div></section>`);
+    const download = document.querySelector("#download-jd");
+    if (download) download.onclick = async () => {
+        download.disabled = true;
+        try {
+            const pdf = await api(`/jobs/${id}/jd`, {blob:true, signal:ctx.signal});
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(pdf);
+            link.download = `JD-${id}.pdf`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 30000);
+        } catch (error) {
+            if (!ctx.signal.aborted) document.querySelector("#jd-error").textContent = error.message;
+        } finally { download.disabled = false; }
+    };
     document.querySelector("#jump-apply").onclick = () => {
         const panel = document.querySelector("#apply-panel");
         const action = panel.querySelector("a.primary");

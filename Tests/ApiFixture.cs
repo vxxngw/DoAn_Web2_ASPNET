@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -37,12 +38,21 @@ public class ApiFixture : IAsyncLifetime
     private bool databaseCreated;
     public HttpClient Public { get; private set; } = null!;
     public TestAccount Admin { get; private set; } = null!;
-    public string ConnectionString => new Microsoft.Data.SqlClient.SqlConnectionStringBuilder
+    public string ConnectionString
     {
-        DataSource = @"(localdb)\MSSQLLocalDB", InitialCatalog = database,
-        AttachDBFilename = Path.Combine(AppContext.BaseDirectory, database + ".mdf"),
-        IntegratedSecurity = true, TrustServerCertificate = true
-    }.ConnectionString;
+        get
+        {
+            string? server = Environment.GetEnvironmentVariable("RECRUITMENT_TEST_SQL_SERVER");
+            var connection = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder
+            {
+                DataSource = server ?? @"(localdb)\MSSQLLocalDB", InitialCatalog = database,
+                IntegratedSecurity = true, TrustServerCertificate = true
+            };
+            if (server == null)
+                connection.AttachDBFilename = Path.Combine(AppContext.BaseDirectory, database + ".mdf");
+            return connection.ConnectionString;
+        }
+    }
 
     public ApiFixture()
     {
@@ -140,6 +150,21 @@ public class ApiFixture : IAsyncLifetime
 
     public static JobRequest NewJob(string title = "Lập trình viên", string location = "Hà Nội") =>
         new() { Title = title, Description = "Xây dựng API", Location = location, Deadline = DateTimeOffset.UtcNow.AddDays(10) };
+
+    public static async Task RunBrowserAsync(string script, object input)
+    {
+        var start = new ProcessStartInfo("node") { UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardInput = true, RedirectStandardError = true };
+        start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory,script));
+        using var process = Process.Start(start)!;
+        var errors = process.StandardError.ReadToEndAsync();
+        await process.StandardInput.WriteAsync(JsonSerializer.Serialize(input));
+        process.StandardInput.Close();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        try { await process.WaitForExitAsync(timeout.Token); }
+        finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+        Assert.True(process.ExitCode == 0, await errors);
+    }
 
     public static async Task<JobResponse> CreateJobAsync(TestAccount employer, JobRequest request)
     {

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using static Recruitment.Tests.ApiFixture;
@@ -9,20 +8,35 @@ namespace Recruitment.Tests;
 public class SwaggerTests(ApiFixture app)
 {
     [Fact]
-    public async Task OpenApi_documents_all_19_operations_with_their_auth_and_success_responses()
+    public async Task OpenApi_documents_all_operations_with_their_auth_and_success_responses()
     {
         var spec = await ReadAsync<JsonElement>(await app.Public.GetAsync("/swagger/v1/swagger.json"));
         var paths = spec.GetProperty("paths");
         var expected = new (string Method, string Path, int Success, bool Protected)[]
         {
             ("post","/api/auth/register",201,false), ("post","/api/auth/login",200,false), ("get","/api/auth/me",200,true),
+            ("put","/api/auth/me",200,true), ("put","/api/auth/me/avatar",200,true),
+            ("put","/api/auth/me/password",204,true),
+            ("put","/api/auth/me/candidate-profile",200,true),
+            ("get","/api/profile",200,true), ("put","/api/profile",204,true),
+            ("get","/api/profile/cv",200,true), ("put","/api/profile/cv",204,true),
+            ("get","/api/employer/candidates",200,true), ("get","/api/employer/candidates/{id}",200,true),
+            ("get","/api/employer/applications",200,true), ("get","/api/employer/report",200,true),
+            ("post","/api/jobs/with-jd",201,true), ("put","/api/jobs/{id}/with-jd",204,true), ("get","/api/jobs/{id}/jd",200,false),
             ("get","/api/jobs/summary",200,false), ("get","/api/jobs",200,false), ("post","/api/jobs",201,true),
+            ("get","/api/jobs/top-companies",200,false),
+            ("get","/api/companies/{id}/logo",200,false), ("put","/api/companies/me/logo",204,true),
+            ("get","/api/jobs/industries",200,false), ("get","/api/saved-jobs",200,true),
+            ("put","/api/saved-jobs/{jobId}",204,true), ("delete","/api/saved-jobs/{jobId}",204,true),
             ("get","/api/jobs/mine",200,true), ("get","/api/jobs/{id}",200,false),
             ("put","/api/jobs/{id}",204,true), ("delete","/api/jobs/{id}",204,true),
             ("post","/api/jobs/{jobId}/applications",201,true), ("get","/api/jobs/{jobId}/applications",200,true),
             ("get","/api/applications/mine",200,true), ("get","/api/applications/{id}",200,true),
             ("get","/api/applications/{id}/cv",200,true), ("patch","/api/applications/{id}/status",204,true),
-            ("get","/api/admin/users",200,true), ("patch","/api/admin/users/{id}/lock",204,true), ("get","/api/admin/jobs",200,true)
+            ("get","/api/admin/users",200,true), ("patch","/api/admin/users/{id}/lock",204,true), ("get","/api/admin/jobs",200,true),
+            ("get","/api/admin/users/{id}",200,true), ("put","/api/admin/users/{id}",204,true), ("delete","/api/admin/users/{id}",204,true),
+            ("get","/api/admin/users/{id}/deletion-impact",200,true), ("get","/api/admin/jobs/{id}/deletion-impact",200,true),
+            ("get","/api/admin/statistics",200,true)
         };
         Assert.Equal(expected.Length, paths.EnumerateObject().Sum(p => p.Value.EnumerateObject().Count()));
         foreach (var (method, path, success, requiresLogin) in expected)
@@ -72,17 +86,7 @@ public class SwaggerTests(ApiFixture app)
         var employer = await app.AccountAsync("Employer");
         var candidate = await app.AccountAsync("Candidate");
         var job = await CreateJobAsync(employer, NewJob("Tin cho Swagger"));
-        var start = new ProcessStartInfo("node") { UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardInput = true, RedirectStandardError = true };
-        start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory,"swagger-ui.cjs"));
-        using var process = Process.Start(start)!;
-        var errors = process.StandardError.ReadToEndAsync();
-        await process.StandardInput.WriteAsync(JsonSerializer.Serialize(new {
-            baseUrl = app.Public.BaseAddress, email = candidate.Email, password = Password, jobId = job.Id }));
-        process.StandardInput.Close();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        try { await process.WaitForExitAsync(timeout.Token); }
-        finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
-        Assert.True(process.ExitCode == 0, await errors);
+        await RunBrowserAsync("swagger-ui.cjs", new {
+            baseUrl = app.Public.BaseAddress, email = candidate.Email, employerEmail = employer.Email, password = Password, jobId = job.Id });
     }
 }

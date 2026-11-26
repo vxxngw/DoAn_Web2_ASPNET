@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using Recruitment.Api.Services;
 
 namespace Recruitment.Api.Controllers;
@@ -13,6 +14,9 @@ public class ApiExceptionHandler : IExceptionHandler
         {
             BusinessException business => business,
             DbUpdateConcurrencyException => new BusinessException(409, "Tin vừa thay đổi. Vui lòng tải lại."),
+            DbUpdateException { InnerException: SqlException { Number: 547 or 1205 } }
+                or SqlException { Number: 547 or 1205 } =>
+                new BusinessException(409, "Dữ liệu liên quan vừa thay đổi. Vui lòng tải lại và thử lại."),
             BadHttpRequestException badRequest when badRequest.StatusCode == 413 =>
                 new BusinessException(413, "Dữ liệu tải lên quá lớn."),
             _ => null

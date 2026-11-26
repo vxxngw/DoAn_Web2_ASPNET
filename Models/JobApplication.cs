@@ -15,4 +15,5 @@ public class JobApplication
     public byte[] CvPdf { get; set; } = [];
     public ApplicationStatus Status { get; set; }
     public DateTimeOffset SubmittedAt { get; set; }
+    public DateTimeOffset? ReviewedAt { get; set; }
 }

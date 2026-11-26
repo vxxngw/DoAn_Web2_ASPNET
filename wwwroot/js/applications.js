@@ -1,5 +1,5 @@
 import {api, user} from "./api.js";
-import {back, badge, confirmAction, date, empty, errorBox, esc, go, icon, notify, pageOf, pager, statuses, url} from "./ui.js";
+import {back, badge, confirmAction, date, empty, errorBox, esc, go, icon, notify, pageOf, pager, saveBlob, statuses, url} from "./ui.js";
 
 export async function applicationsPage(ctx, jobId) {
     const route = jobId ? `/employer/${jobId}/applications` : "/applications";
@@ -45,15 +45,7 @@ export async function applicationPage(ctx, id) {
         button.disabled = true;
         error.textContent = "";
         try {
-            const pdf = await api(`/applications/${id}/cv`, {blob:true,signal:ctx.signal});
-            const address = URL.createObjectURL(pdf);
-            const link = document.createElement("a");
-            link.href = address;
-            link.download = `cv-${id}.pdf`;
-            document.body.append(link);
-            link.click();
-            link.remove();
-            setTimeout(() => URL.revokeObjectURL(address), 30000);
+            saveBlob(await api(`/applications/${id}/cv`, {blob:true,signal:ctx.signal}), `cv-${id}.pdf`);
         } catch (failure) {
             if (!ctx.signal.aborted) error.textContent = failure.message;
         } finally { button.disabled = false; }

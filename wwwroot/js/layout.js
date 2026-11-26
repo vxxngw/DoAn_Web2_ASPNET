@@ -15,10 +15,10 @@ export function breadcrumb(title, parent, heading = false) {
 export function dashboard(content, path) {
     const employer = user.role === "Employer";
     const admin = user.role === "Admin";
-    const links = admin ? [["/admin/users","file","Tài khoản người dùng"],["/admin/jobs","work","Tin tuyển dụng"]] : employer ? [["/employer","work","Tin của tôi"],["/employer/new","plus","Đăng tin mới"]] :
-        [["/applications","file","Đơn đã nộp"]];
+    const links = admin ? [["/admin/users","file","Tài khoản người dùng"],["/admin/jobs","work","Tin tuyển dụng"],["/admin/statistics","calendar","Thống kê"]] : employer ? [["/employer","work","Tin của tôi"],["/employer/new","plus","Đăng tin mới"],["/employer/applicants","person","Ứng viên"],["/employer/report","overview","Báo cáo"]] :
+        [["/profile","person","Hồ sơ và tài khoản"],["/applications","file","Đơn đã nộp"],["/saved-jobs","bookmark","Việc đã lưu"]];
     const nav = links.map(([target, symbol, label]) =>
-        `<a href="#${target}" ${path === target ? 'aria-current="page"' : ""}>${icon(symbol)}${label}</a>`).join("");
+        `<a href="#${target}" ${path === target || (target === "/employer/applicants" && path.startsWith("/employer/candidates")) ? 'aria-current="page"' : ""}>${icon(symbol)}${label}</a>`).join("");
     return `<div class="wrap dashboard"><aside class="dashboard-nav">
       <p>${admin ? "Quản trị viên" : employer ? "Nhà tuyển dụng" : "Ứng viên"}</p><nav aria-label="Quản lý tài khoản">${nav}</nav>
       </aside><div class="dashboard-body">${content}</div></div>`;

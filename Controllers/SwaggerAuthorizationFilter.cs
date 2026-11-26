@@ -10,9 +10,9 @@ public class SwaggerAuthorizationFilter : IOperationFilter
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         var authorization = context.ApiDescription.ActionDescriptor.EndpointMetadata.OfType<IAuthorizeData>().ToList();
-        bool publicJobDetails = context.MethodInfo.DeclaringType == typeof(JobsController)
-            && context.MethodInfo.Name == nameof(JobsController.Get);
-        if (authorization.Count == 0 && !publicJobDetails)
+        bool optionalLogin = context.MethodInfo.DeclaringType == typeof(JobsController)
+            && context.MethodInfo.Name is nameof(JobsController.Get) or nameof(JobsController.List) or nameof(JobsController.DownloadJd);
+        if (authorization.Count == 0 && !optionalLogin)
             return;
 
         var scheme = new OpenApiSecurityScheme
@@ -20,7 +20,7 @@ public class SwaggerAuthorizationFilter : IOperationFilter
             Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
         };
         operation.Security = [new OpenApiSecurityRequirement { [scheme] = Array.Empty<string>() }];
-        if (publicJobDetails)
+        if (optionalLogin)
         {
             operation.Security.Add(new OpenApiSecurityRequirement());
             return;

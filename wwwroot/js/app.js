@@ -1,11 +1,13 @@
-import {adminUsersPage} from "./admin.js";
+import {adminStatisticsPage, adminUserForm, adminUsersPage} from "./admin.js";
 import {dashboard} from "./layout.js";
 import {api, clearSession, hasSession, setUser, user} from "./api.js";
-import {accountPage} from "./account.js";
+import {accountPage, personalProfilePage, profileMenu} from "./account.js";
 import {applicationsPage, applicationPage} from "./applications.js";
 import {jobForm} from "./employer.js";
+import {employerCandidates, employerReport, publicCandidatePage} from "./employer-workspace.js";
 import {homePage} from "./home.js";
-import {jobsPage, jobPage} from "./jobs.js";
+import {jobsPage, jobPage, savedJobsPage} from "./jobs.js";
+import {toggleSaved} from "./saved.js";
 import {esc, go, notify, url} from "./ui.js";
 
 const main = document.querySelector("#main");
@@ -20,8 +22,9 @@ function navigation(path) {
     const candidate = user?.role === "Candidate";
     const links = [["/", "Trang chủ"], ["/jobs", "Tìm việc"]];
     if (admin) links.push(["/admin/users","Quản trị"]);
+    if (candidate) links.push(["/saved-jobs","Việc đã lưu"]);
     if (!admin && !employer) links.push([candidate ? "/applications" : "/register", candidate ? "Đơn đã nộp" : "Ứng viên"]);
-    if (!admin && !candidate) links.push([employer ? "/employer" : "/register?role=Employer", employer ? "Tin của tôi" : "Nhà tuyển dụng"]);
+    if (!admin && !candidate) links.push([employer ? "/employer" : "/register?role=Employer", "Nhà tuyển dụng"]);
     nav.innerHTML = links.map(([target,label]) => {
         const selected = target === path || (target === "/admin/users" && path.startsWith("/admin/")) || (target === "/jobs" && path.startsWith("/job/")) ||
             (target === "/employer" && path.startsWith("/employer/")) ||
@@ -37,7 +40,7 @@ function navigation(path) {
     employerLinks.innerHTML = `<h2>Nhà tuyển dụng</h2><a href="#${employer ? "/employer" : "/register?role=Employer"}">${employer ? "Tin của tôi" : "Tạo tài khoản công ty"}</a>
         <a href="#/employer/new">Đăng tin tuyển dụng</a>`;
     if (user) {
-        account.innerHTML = `<span class="user-name">${esc(user.fullName)}</span><button id="logout" class="text-action">Đăng xuất</button>`;
+        account.innerHTML = profileMenu(user);
         document.querySelector("#logout").onclick = () => {
             clearSession();
             go("/jobs");
@@ -47,6 +50,25 @@ function navigation(path) {
         account.innerHTML = '<a class="secondary" href="#/login">Đăng nhập</a><a class="primary" href="#/register?role=Employer">Đăng tuyển</a>';
     }
 }
+
+function closeProfileMenu(returnFocus = false) {
+    const menu = document.querySelector("#account details[open]");
+    if (!menu) return;
+    menu.open = false;
+    if (returnFocus) menu.querySelector("summary").focus();
+}
+
+document.addEventListener("click", event => {
+    const save = event.target.closest("button.save-job");
+    if (save) toggleSaved(save);
+    if (!event.target.closest("#account") || event.target.closest("#account a")) closeProfileMenu();
+});
+document.addEventListener("focusin", event => {
+    if (!event.target.closest("#account")) closeProfileMenu();
+});
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeProfileMenu(true);
+});
 
 function requireUser(role, destination) {
     if (!user) {
@@ -64,8 +86,13 @@ async function render() {
     const signal = current.signal;
     const destination = location.hash.slice(1) || "/";
     const [path, rawQuery = ""] = destination.split("?");
+    if (path === "/account/settings") {
+        location.replace("#/profile" + (rawQuery ? "?" + rawQuery : ""));
+        return;
+    }
     const auth = path === "/login" || path === "/register";
-    const managed = path.startsWith("/admin/") || path.startsWith("/employer") || path.startsWith("/applications");
+    const managed = path.startsWith("/admin/") || path.startsWith("/employer") || path.startsWith("/applications")
+        || path === "/profile" || path === "/saved-jobs";
     document.body.classList.toggle("auth-page", auth);
     document.querySelector("#quick-search").elements.keyword.value = path === "/jobs" ? new URLSearchParams(rawQuery).get("keyword") || "" : "";
     const ctx = {signal, query:new URLSearchParams(rawQuery), show(markup) {
@@ -86,14 +113,21 @@ async function render() {
         else if (path === "/jobs") await jobsPage(ctx);
         else if ((match = path.match(/^\/job\/(\d+)$/))) await jobPage(ctx,match[1]);
         else if (path === "/login" || path === "/register") accountPage(ctx,path === "/register");
+        else if (path === "/profile" && requireUser(null,destination)) await personalProfilePage(ctx);
         else if (path === "/admin/users" && requireUser("Admin",destination)) await adminUsersPage(ctx);
+        else if ((match = path.match(/^\/admin\/users\/(\d+)\/edit$/)) && requireUser("Admin",destination)) await adminUserForm(ctx,match[1]);
+        else if (path === "/admin/statistics" && requireUser("Admin",destination)) await adminStatisticsPage(ctx);
         else if (path === "/admin/jobs" && requireUser("Admin",destination)) await jobsPage(ctx,false,true);
         else if ((match = path.match(/^\/admin\/jobs\/(\d+)\/edit$/)) && requireUser("Admin",destination)) await jobForm(ctx,match[1]);
         else if (path === "/employer" && requireUser("Employer",destination)) await jobsPage(ctx,true);
         else if (path === "/employer/new" && requireUser("Employer",destination)) await jobForm(ctx);
+        else if (path === "/employer/report" && requireUser("Employer",destination)) await employerReport(ctx);
+        else if (["/employer/applicants","/employer/candidates"].includes(path) && requireUser("Employer",destination)) await employerCandidates(ctx,path);
+        else if ((match = path.match(/^\/employer\/candidates\/(\d+)$/)) && requireUser("Employer",destination)) await publicCandidatePage(ctx,match[1]);
         else if ((match = path.match(/^\/employer\/(\d+)\/edit$/)) && requireUser("Employer",destination)) await jobForm(ctx,match[1]);
         else if ((match = path.match(/^\/employer\/(\d+)\/applications$/)) && requireUser("Employer",destination)) await applicationsPage(ctx,match[1]);
         else if (path === "/applications" && requireUser("Candidate",destination)) await applicationsPage(ctx);
+        else if (path === "/saved-jobs" && requireUser("Candidate",destination)) await savedJobsPage(ctx);
         else if ((match = path.match(/^\/applications\/(\d+)$/)) && requireUser(null,destination)) await applicationPage(ctx,match[1]);
         else if (location.hash.slice(1) === destination) throw new Error("Không tìm thấy trang.");
         signal.throwIfAborted();

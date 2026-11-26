@@ -1,5 +1,12 @@
 const paths = {
+    bookmark: '<path d="M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4z"/>',
+    overview: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    person: '<circle cx="12" cy="8" r="3.4"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/>',
+    account: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16a3 3 0 0 1 6 0m2-6h4m-4 4h3"/>',
+    logout: '<path d="M10 4H5v16h5m-1-8h12m-5-5 5 5-5 5"/>',
     search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="m3 3 18 18M10.6 5.1 12 5c6.5 0 10 7 10 7a20 20 0 0 1-3 3.9M6.4 6.4A19 19 0 0 0 2 12s3.5 7 10 7c1.9 0 3.6-.6 5.1-1.5M10 10a2.8 2.8 0 0 0 4 4"/>',
     pin: '<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18"/>',
     work: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12c5 3 13 3 18 0m-9 1v3"/>',
@@ -34,7 +41,7 @@ export function go(path) {
 }
 
 export function internalNext(value, fallback) {
-    return /^\/(?:admin\/(?:users|jobs(?:\/\d+\/edit)?)|jobs|job\/\d+|applications(?:\/\d+)?|employer(?:\/new|\/\d+\/(?:edit|applications))?)(?:\?.*)?$/.test(value || "") ? value : fallback;
+    return /^\/(?:profile|account\/settings|admin\/(?:(?:users|jobs)(?:\/\d+\/edit)?|statistics)|jobs|saved-jobs|job\/\d+|applications(?:\/\d+)?|employer(?:\/(?:new|report|applicants)|\/candidates(?:\/\d+)?|\/\d+\/(?:edit|applications))?)(?:\?.*)?$/.test(value || "") ? value : fallback;
 }
 
 export function date(value, withTime = false) {
@@ -42,7 +49,10 @@ export function date(value, withTime = false) {
     return new Intl.DateTimeFormat("vi-VN", options).format(new Date(value));
 }
 
-export function avatar(name) {
+export function companyAvatar(company) {
+    if (company.hasCompanyLogo)
+        return `<img class="company-avatar company-avatar-image" src="/api/companies/${company.employerId}/logo" alt="" loading="lazy">`;
+    const name = company.companyName;
     const words = name.trim().split(/\s+/);
     const letters = words.slice(0, 2).map(w => w[0]).join("").toUpperCase();
     const hue = [...name].reduce((sum, ch) => sum + ch.codePointAt(0), 0) % 6;
@@ -63,14 +73,24 @@ export function empty(title, message, action = "") {
 export function back(path, label) {
     return `<a class="back" href="#${esc(path)}">${icon("left")}${esc(label)}</a>`;
 }
-export function pager(result, path, params) {
+export function saveBlob(blob, fileName) {
+    const address = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = address;
+    link.download = fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(address), 30000);
+}
+export function pager(result, path, params, pageKey = "page", label = "Phân trang") {
     const pages = Math.ceil(result.totalCount / result.pageSize);
     if (pages < 2) return "";
-    const link = (page, label) => `<a class="secondary small" href="#${esc(url(path, {...params, page}))}">${label}</a>`;
-    return `<nav class="pager" aria-label="Phân trang">${result.page > 1 ? link(result.page-1,"Trang trước") : ""}<span>Trang ${result.page} / ${pages}</span>${result.page < pages ? link(result.page+1,"Trang sau") : ""}</nav>`;
+    const link = (page, text) => `<a class="secondary small" href="#${esc(url(path, {...params, [pageKey]:page}))}">${text}</a>`;
+    return `<nav class="pager" aria-label="${esc(label)}">${result.page > 1 ? link(result.page-1,"Trang trước") : ""}<span>Trang ${result.page} / ${pages}</span>${result.page < pages ? link(result.page+1,"Trang sau") : ""}</nav>`;
 }
-export function pageOf(query) {
-    return Math.min(1000000, Math.max(1, parseInt(query.get("page"), 10) || 1));
+export function pageOf(query, key = "page") {
+    return Math.min(1000000, Math.max(1, parseInt(query.get(key), 10) || 1));
 }
 
 let timer;

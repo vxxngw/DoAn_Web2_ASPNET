@@ -8,6 +8,8 @@
     <UserSecretsId>DoAnWeb2-Recruitment-Api</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Data/Samples/cv-mau.pdf" LogicalName="Recruitment.Api.DemoCv.pdf" />
+    <EmbeddedResource Include="Data/Samples/Logos/*.png" LogicalName="Recruitment.Api.Logos.%(Filename).png" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <!-- Bản vá cho phụ thuộc gián tiếp của Microsoft.Data.SqlClient. -->

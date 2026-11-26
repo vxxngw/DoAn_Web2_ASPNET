@@ -10,6 +10,33 @@ namespace Recruitment.Tests;
 public class JobTests(ApiFixture app)
 {
     [Fact]
+    public async Task Featured_jobs_prioritize_applications_and_company_links_filter_by_employer()
+    {
+        var employer = await app.AccountAsync("Employer");
+        var popular = await CreateJobAsync(employer, NewJob());
+        var recent = await CreateJobAsync(employer, NewJob());
+        var closed = NewJob();
+        closed.IsOpen = false;
+        await CreateJobAsync(employer, closed);
+        var other = await app.AccountAsync("Employer");
+        await CreateJobAsync(other, NewJob());
+
+        var candidate = await app.AccountAsync("Candidate");
+        using var form = ApplicationTests.Form();
+        await ReadAsync<CreatedResponse>(await candidate.Client.PostAsync($"/api/jobs/{popular.Id}/applications", form), HttpStatusCode.Created);
+        var list = await ReadAsync<PagedResult<JobResponse>>(await app.Public.GetAsync($"/api/jobs?employerId={employer.Id}&sort=Featured"));
+        Assert.Equal(new[] { popular.Id, recent.Id }, list.Items.Select(j => j.Id));
+
+        var top = await ReadAsync<List<TopCompany>>(await app.Public.GetAsync("/api/jobs/top-companies"));
+        await using var db = app.OpenDb();
+        var now = DateTimeOffset.UtcNow;
+        var counts = await db.Jobs.Where(j => j.IsOpen && !j.Employer.IsLocked && j.Deadline > now)
+            .GroupBy(j => j.EmployerId).Select(g => new { Id = g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Id, g => g.Count);
+        Assert.Equal(counts.Values.OrderDescending().Take(4), top.Select(c => c.OpenJobs));
+        Assert.All(top, c => Assert.Equal(counts[c.EmployerId], c.OpenJobs));
+    }
+
+    [Fact]
     public async Task Search_sort_and_pagination_return_matching_rows_and_total()
     {
         var employer = await app.AccountAsync("Employer");

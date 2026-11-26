@@ -14,6 +14,7 @@ public interface IApplicationRepository
     Task<SubmissionResult> SubmitAsync(JobApplication application, CancellationToken ct);
     Task<PagedResult<ApplicationResponse>> ListForCandidateAsync(int candidateId, ApplicationQuery query, CancellationToken ct);
     Task<PagedResult<ApplicationResponse>> ListForJobAsync(int jobId, ApplicationQuery query, CancellationToken ct);
+    Task<PagedResult<ApplicationResponse>> ListReceivedAsync(int employerId, ApplicationQuery query, CancellationToken ct);
     Task<ApplicationResponse?> GetVisibleAsync(int id, int viewerId, CancellationToken ct);
     Task<byte[]?> GetCvAsync(int id, int viewerId, CancellationToken ct);
     Task<bool> TryReviewAsync(int id, int employerId, ApplicationStatus status, CancellationToken ct);
@@ -58,12 +59,20 @@ public class ApplicationRepository(AppDbContext db) : IApplicationRepository
     public Task<PagedResult<ApplicationResponse>> ListForJobAsync(int jobId, ApplicationQuery query, CancellationToken ct) =>
         ListAsync(db.Applications.Where(a => a.JobId == jobId), query, ct);
 
+    public Task<PagedResult<ApplicationResponse>> ListReceivedAsync(int employerId, ApplicationQuery query, CancellationToken ct) =>
+        ListAsync(db.Applications.Where(a => a.Job.EmployerId == employerId), query, ct);
+
     private static Task<PagedResult<ApplicationResponse>> ListAsync(IQueryable<JobApplication> applications, ApplicationQuery query, CancellationToken ct)
     {
         if (query.JobId.HasValue)
             applications = applications.Where(a => a.JobId == query.JobId.Value);
         if (query.Status.HasValue)
             applications = applications.Where(a => a.Status == query.Status.Value);
+        if (!string.IsNullOrWhiteSpace(query.Keyword))
+        {
+            var term = query.Keyword.Trim();
+            applications = applications.Where(a => a.Candidate.FullName.Contains(term) || a.Candidate.Email.Contains(term) || a.Job.Title.Contains(term));
+        }
         return applications.AsNoTracking().OrderByDescending(a => a.SubmittedAt).ThenByDescending(a => a.Id)
             .Select(ToResponse).ToPageAsync(query, ct);
     }
@@ -81,7 +90,8 @@ public class ApplicationRepository(AppDbContext db) : IApplicationRepository
     {
         int changed = await db.Applications
             .Where(a => a.Id == id && a.Job.EmployerId == employerId && a.Status == ApplicationStatus.Submitted)
-            .ExecuteUpdateAsync(set => set.SetProperty(a => a.Status, status), ct);
+            .ExecuteUpdateAsync(set => set.SetProperty(a => a.Status, status)
+                .SetProperty(a => a.ReviewedAt, DateTimeOffset.UtcNow), ct);
         return changed == 1;
     }
 }

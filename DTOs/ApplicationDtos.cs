@@ -11,6 +11,7 @@ public class ApplyRequest
 
 public class ApplicationQuery : PageQuery
 {
+    [MaxLength(150)] public string? Keyword { get; set; }
     [Range(1, int.MaxValue)] public int? JobId { get; set; }
     [EnumDataType(typeof(ApplicationStatus))] public ApplicationStatus? Status { get; set; }
 }

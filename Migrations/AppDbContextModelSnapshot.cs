@@ -22,6 +22,69 @@ namespace Recruitment.Api.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Recruitment.Api.Models.CandidateCv", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("CandidateCvs");
+                });
+
+            modelBuilder.Entity("Recruitment.Api.Models.CandidateProfile", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("CurrentLevel")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DesiredLocation")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("DesiredSalary")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HighestDegree")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("YearsOfExperience")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("CandidateProfiles");
+                });
+
             modelBuilder.Entity("Recruitment.Api.Models.Job", b =>
                 {
                     b.Property<int>("Id")
@@ -29,6 +92,9 @@ namespace Recruitment.Api.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -44,8 +110,22 @@ namespace Recruitment.Api.Migrations
                     b.Property<int>("EmployerId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Industry")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<bool>("IsOpen")
                         .HasColumnType("bit");
+
+                    b.Property<bool?>("IsSalaryNegotiable")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("JdPdf")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("JdUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
 
                     b.Property<string>("Location")
                         .IsRequired()
@@ -57,6 +137,12 @@ namespace Recruitment.Api.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<int?>("SalaryMax")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SalaryMin")
+                        .HasColumnType("int");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -95,6 +181,9 @@ namespace Recruitment.Api.Migrations
                         .HasMaxLength(1500)
                         .HasColumnType("nvarchar(1500)");
 
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -113,6 +202,24 @@ namespace Recruitment.Api.Migrations
                     b.ToTable("Applications");
                 });
 
+            modelBuilder.Entity("Recruitment.Api.Models.SavedJob", b =>
+                {
+                    b.Property<int>("CandidateId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("JobId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("SavedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("CandidateId", "JobId");
+
+                    b.HasIndex("JobId");
+
+                    b.ToTable("SavedJobs");
+                });
+
             modelBuilder.Entity("Recruitment.Api.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -120,6 +227,12 @@ namespace Recruitment.Api.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<byte[]>("AvatarImage")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<byte[]>("CompanyLogo")
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<string>("CompanyName")
                         .HasMaxLength(150)
@@ -138,10 +251,21 @@ namespace Recruitment.Api.Migrations
                     b.Property<bool>("IsLocked")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsProfilePublic")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("ProfessionalTitle")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("ProfileSummary")
+                        .HasMaxLength(1500)
+                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -154,6 +278,148 @@ namespace Recruitment.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Recruitment.Api.Models.CandidateCv", b =>
+                {
+                    b.HasOne("Recruitment.Api.Models.User", null)
+                        .WithOne()
+                        .HasForeignKey("Recruitment.Api.Models.CandidateCv", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Recruitment.Api.Models.CandidateProfile", b =>
+                {
+                    b.HasOne("Recruitment.Api.Models.User", null)
+                        .WithOne()
+                        .HasForeignKey("Recruitment.Api.Models.CandidateProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsMany("Recruitment.Api.Models.Education", "Educations", b1 =>
+                        {
+                            b1.Property<int>("CandidateProfileUserId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAddOrUpdate();
+
+                            b1.Property<DateOnly>("From");
+
+                            b1.Property<string>("Major")
+                                .HasMaxLength(150);
+
+                            b1.Property<string>("School")
+                                .IsRequired()
+                                .HasMaxLength(150);
+
+                            b1.Property<DateOnly?>("To");
+
+                            b1.HasKey("CandidateProfileUserId", "__synthesizedOrdinal");
+
+                            b1.ToTable("CandidateProfiles");
+
+                            b1
+                                .ToJson("Educations")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CandidateProfileUserId");
+                        });
+
+                    b.OwnsMany("Recruitment.Api.Models.LanguageSkill", "Languages", b1 =>
+                        {
+                            b1.Property<int>("CandidateProfileUserId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAddOrUpdate();
+
+                            b1.Property<string>("Level")
+                                .IsRequired()
+                                .HasMaxLength(20);
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(50);
+
+                            b1.HasKey("CandidateProfileUserId", "__synthesizedOrdinal");
+
+                            b1.ToTable("CandidateProfiles");
+
+                            b1
+                                .ToJson("Languages")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CandidateProfileUserId");
+                        });
+
+                    b.OwnsMany("Recruitment.Api.Models.Skill", "Skills", b1 =>
+                        {
+                            b1.Property<int>("CandidateProfileUserId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAddOrUpdate();
+
+                            b1.Property<int>("Level");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(50);
+
+                            b1.HasKey("CandidateProfileUserId", "__synthesizedOrdinal");
+
+                            b1.ToTable("CandidateProfiles");
+
+                            b1
+                                .ToJson("Skills")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CandidateProfileUserId");
+                        });
+
+                    b.OwnsMany("Recruitment.Api.Models.WorkExperience", "Experiences", b1 =>
+                        {
+                            b1.Property<int>("CandidateProfileUserId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAddOrUpdate();
+
+                            b1.Property<string>("Company")
+                                .IsRequired()
+                                .HasMaxLength(150);
+
+                            b1.Property<string>("Description")
+                                .HasMaxLength(1000);
+
+                            b1.Property<DateOnly>("From");
+
+                            b1.Property<string>("Title")
+                                .IsRequired()
+                                .HasMaxLength(100);
+
+                            b1.Property<DateOnly?>("To");
+
+                            b1.HasKey("CandidateProfileUserId", "__synthesizedOrdinal");
+
+                            b1.ToTable("CandidateProfiles");
+
+                            b1
+                                .ToJson("Experiences")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CandidateProfileUserId");
+                        });
+
+                    b.Navigation("Educations");
+
+                    b.Navigation("Experiences");
+
+                    b.Navigation("Languages");
+
+                    b.Navigation("Skills");
                 });
 
             modelBuilder.Entity("Recruitment.Api.Models.Job", b =>
@@ -182,6 +448,23 @@ namespace Recruitment.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Candidate");
+
+                    b.Navigation("Job");
+                });
+
+            modelBuilder.Entity("Recruitment.Api.Models.SavedJob", b =>
+                {
+                    b.HasOne("Recruitment.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Recruitment.Api.Models.Job", "Job")
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Job");
                 });

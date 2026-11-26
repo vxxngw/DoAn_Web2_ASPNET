@@ -9,6 +9,7 @@ public interface IApplicationService
     Task<int> ApplyAsync(int jobId, int candidateId, ApplyRequest request, CancellationToken ct);
     Task<PagedResult<ApplicationResponse>> ListMineAsync(int candidateId, ApplicationQuery query, CancellationToken ct);
     Task<PagedResult<ApplicationResponse>> ListForJobAsync(int jobId, int employerId, ApplicationQuery query, CancellationToken ct);
+    Task<PagedResult<ApplicationResponse>> ListReceivedAsync(int employerId, ApplicationQuery query, CancellationToken ct);
     Task<ApplicationResponse> GetAsync(int id, int viewerId, CancellationToken ct);
     Task<byte[]> GetCvAsync(int id, int viewerId, CancellationToken ct);
     Task ReviewAsync(int id, int employerId, ApplicationStatus status, CancellationToken ct);
@@ -16,21 +17,9 @@ public interface IApplicationService
 
 public class ApplicationService(IApplicationRepository applications, IJobService jobs) : IApplicationService
 {
-    private const int MaxCvBytes = 5 * 1024 * 1024;
-
     public async Task<int> ApplyAsync(int jobId, int candidateId, ApplyRequest request, CancellationToken ct)
     {
-        var file = request.Cv;
-        if (file.Length > MaxCvBytes)
-            throw new BusinessException(413, "CV vượt quá 5 MiB.");
-        if (file.Length < 5 || !string.Equals(Path.GetExtension(file.FileName), ".pdf", StringComparison.OrdinalIgnoreCase))
-            throw new BusinessException(400, "Vui lòng chọn tệp CV định dạng PDF.");
-
-        using var buffer = new MemoryStream((int)file.Length);
-        await file.CopyToAsync(buffer, ct);
-        var pdf = buffer.ToArray();
-        if (!pdf.AsSpan().StartsWith("%PDF-"u8))
-            throw new BusinessException(400, "Nội dung tệp thiếu chữ ký PDF.");
+        var pdf = await PdfUpload.ReadAsync(request.Cv, "CV", ct);
 
         var application = new JobApplication
         {
@@ -50,6 +39,9 @@ public class ApplicationService(IApplicationRepository applications, IJobService
 
     public Task<PagedResult<ApplicationResponse>> ListMineAsync(int candidateId, ApplicationQuery query, CancellationToken ct) =>
         applications.ListForCandidateAsync(candidateId, query, ct);
+
+    public Task<PagedResult<ApplicationResponse>> ListReceivedAsync(int employerId, ApplicationQuery query, CancellationToken ct) =>
+        applications.ListReceivedAsync(employerId, query, ct);
 
     public async Task<PagedResult<ApplicationResponse>> ListForJobAsync(int jobId, int employerId, ApplicationQuery query, CancellationToken ct)
     {

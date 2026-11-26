@@ -15,7 +15,7 @@ using Recruitment.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 bool demo = builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Demo:Enabled");
-if (demo)
+if (string.IsNullOrEmpty(builder.Configuration["Jwt:Key"]))
     builder.Configuration["Jwt:Key"] = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(48));
 
 var services = builder.Services;
@@ -28,12 +28,15 @@ services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString(demo ? "DemoConnection" : "DefaultConnection")
         ?? throw new InvalidOperationException("Thiếu cấu hình chuỗi kết nối SQL Server.")));
 services.AddScoped<IUserRepository, UserRepository>();
+services.AddScoped<IAdminRepository, AdminRepository>();
 services.AddScoped<IJobRepository, JobRepository>();
 services.AddScoped<IApplicationRepository, ApplicationRepository>();
+services.AddScoped<IProfileRepository, ProfileRepository>();
 services.AddScoped<IAuthService, AuthService>();
 services.AddScoped<IAdminService, AdminService>();
 services.AddScoped<IJobService, JobService>();
 services.AddScoped<IApplicationService, ApplicationService>();
+services.AddScoped<IProfileService, ProfileService>();
 services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 services.AddOptions<JwtSettings>().BindConfiguration("Jwt").ValidateDataAnnotations().ValidateOnStart();
@@ -76,6 +79,7 @@ services.AddSwaggerGen(options =>
         Description = "Dán giá trị accessToken từ API đăng nhập."
     });
     options.OperationFilter<SwaggerAuthorizationFilter>();
+    options.OperationFilter<SwaggerRequestSchemaFilter>();
     options.SchemaFilter<SwaggerRequestSchemaFilter>();
 });
 
@@ -91,10 +95,28 @@ if (args.Contains("--create-admin"))
     Environment.ExitCode = created ? 0 : 1;
     return;
 }
-if (demo)
+bool seedTestData = args.Contains("--seed-test-data");
+if (args.Contains("--enrich-test-data"))
 {
     using var scope = app.Services.CreateScope();
-    await DemoData.InitializeAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var updated = await DemoListingSamples.FillMissingAsync(db);
+    Console.WriteLine($"Đã bổ sung lương cho {updated.Jobs} tin và logo cho {updated.Logos} công ty mẫu.");
+    return;
+}
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DemoData.InitializeAsync(db);
+    if (seedTestData)
+    {
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+        bool added = await DemoTestData.SeedAsync(db, hasher);
+        Console.WriteLine(added ? "Đã thêm 500 bản ghi: 30 nhà tuyển dụng, 100 ứng viên, 200 tin, 170 đơn."
+            : "Bộ dữ liệu 500 đã được nạp. Số bản ghi thêm: 0.");
+        return;
+    }
 }
 app.UseExceptionHandler();
 app.UseStatusCodePages(async context =>

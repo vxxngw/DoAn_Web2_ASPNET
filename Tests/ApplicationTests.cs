@@ -105,6 +105,9 @@ public class ApplicationTests(ApiFixture app)
             Assert.True(pdf.Headers.CacheControl?.NoStore);
             Assert.Equal(Pdf, await pdf.Content.ReadAsByteArrayAsync());
         }
+        await ReadAsync<UserResponse>(await candidate.Client.PutAsJsonAsync("/api/auth/me/candidate-profile", new {isProfilePublic = true}));
+        var publicProfile = await ReadAsync<PublicCandidate>(await foreignEmployer.Client.GetAsync($"/api/employer/candidates/{candidate.Id}"));
+        Assert.Equal(candidate.Email, publicProfile.Email);
         foreach (var actor in new[] {foreignEmployer, foreignCandidate, app.Admin})
         {
             await ErrorAsync(await actor.Client.GetAsync(detail), HttpStatusCode.NotFound);
@@ -120,7 +123,25 @@ public class ApplicationTests(ApiFixture app)
         Assert.Equal(application.Id, Assert.Single(reviewed.Items).Id);
         var waiting = await ReadAsync<PagedResult<ApplicationResponse>>(await employer.Client.GetAsync(list+"?status=Submitted"));
         Assert.Equal(0, waiting.TotalCount);
-        await ErrorAsync(await app.Admin.Client.DeleteAsync($"/api/jobs/{job.Id}"), HttpStatusCode.Conflict);
+        Assert.Equal(HttpStatusCode.NoContent, (await employer.Client.DeleteAsync($"/api/jobs/{job.Id}")).StatusCode);
+        await ErrorAsync(await app.Public.GetAsync($"/api/jobs/{job.Id}"), HttpStatusCode.NotFound);
+        Assert.True((await ReadAsync<JobResponse>(await employer.Client.GetAsync($"/api/jobs/{job.Id}"))).Archived);
+        Assert.Equal(Pdf, await employer.Client.GetByteArrayAsync(detail + "/cv"));
+        var report = await ReadAsync<EmployerReport>(await employer.Client.GetAsync("/api/employer/report"));
+        Assert.Equal(new EmployerJobTotals(0,0,0,1), report.Totals);
+        Assert.Equal(1, report.TotalApplications);
+        Assert.Equal(1, Assert.Single(report.Jobs.Items).Applications);
+        var own = await ReadAsync<PagedResult<ApplicationResponse>>(await employer.Client.GetAsync("/api/employer/applications?keyword="+candidate.Email));
+        Assert.Equal(application.Id, Assert.Single(own.Items).Id);
+        var other = await ReadAsync<EmployerReport>(await foreignEmployer.Client.GetAsync("/api/employer/report"));
+        Assert.Equal(0, other.TotalApplications);
+        Assert.Empty((await ReadAsync<PagedResult<ApplicationResponse>>(await foreignEmployer.Client.GetAsync("/api/employer/applications"))).Items);
+        var impact = await ReadAsync<DeletionImpact>(await app.Admin.Client.GetAsync($"/api/admin/jobs/{job.Id}/deletion-impact"));
+        Assert.Equal(new DeletionImpact(1, 1), impact);
+        await using (var db = app.OpenDb())
+            Assert.NotNull((await db.Applications.FindAsync(application.Id))!.ReviewedAt);
+        Assert.Equal(HttpStatusCode.NoContent, (await app.Admin.Client.DeleteAsync($"/api/jobs/{job.Id}")).StatusCode);
+        await ErrorAsync(await candidate.Client.GetAsync(detail + "/cv"), HttpStatusCode.NotFound);
     }
 
     [Fact]

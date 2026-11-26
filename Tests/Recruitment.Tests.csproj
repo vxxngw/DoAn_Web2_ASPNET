@@ -14,6 +14,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <Using Include="Xunit" />
     <None Update="swagger-ui.cjs" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="profile-ui.cjs" CopyToOutputDirectory="PreserveNewest" />
     <None Update="cv-sample.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
